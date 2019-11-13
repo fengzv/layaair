@@ -3,7 +3,7 @@ import { TrailRenderer } from "./TrailRenderer";
 import { FloatKeyframe } from "../FloatKeyframe"
 import { Gradient } from "../Gradient"
 import { RenderableSprite3D } from "../RenderableSprite3D"
-import { BaseMaterial } from "../material/BaseMaterial"
+import { Material } from "../material/Material"
 import { Color } from "../../math/Color"
 import { Node } from "../../../display/Node"
 import { Loader } from "../../../net/Loader"
@@ -12,7 +12,6 @@ import { Loader } from "../../../net/Loader"
  * <code>TrailSprite3D</code> 类用于创建拖尾渲染精灵。
  */
 export class TrailSprite3D extends RenderableSprite3D {
-
 	/**
 	 * @internal
 	 */
@@ -24,16 +23,14 @@ export class TrailSprite3D extends RenderableSprite3D {
 	private _geometryFilter: TrailFilter;
 
 	/**
-	 * 获取Trail过滤器。
-	 * @return  Trail过滤器。
+	 * Trail过滤器。
 	 */
 	get trailFilter(): TrailFilter {
 		return (<TrailFilter>this._geometryFilter);
 	}
 
 	/**
-	 * 获取Trail渲染器。
-	 * @return  Trail渲染器。
+	 * Trail渲染器。
 	 */
 	get trailRenderer(): TrailRenderer {
 		return (<TrailRenderer>this._render);
@@ -57,7 +54,7 @@ export class TrailSprite3D extends RenderableSprite3D {
 		var i: number, j: number;
 		var materials: any[] = data.materials;
 		if (materials) {
-			var sharedMaterials: BaseMaterial[] = render.sharedMaterials;
+			var sharedMaterials: Material[] = render.sharedMaterials;
 			var materialCount: number = materials.length;
 			sharedMaterials.length = materialCount;
 			for (i = 0; i < materialCount; i++)
@@ -124,6 +121,7 @@ export class TrailSprite3D extends RenderableSprite3D {
 		destTrailFilter.minVertexDistance = this.trailFilter.minVertexDistance;
 		destTrailFilter.widthMultiplier = this.trailFilter.widthMultiplier;
 		destTrailFilter.textureMode = this.trailFilter.textureMode;
+		destTrailFilter.alignment = this.trailFilter.alignment;
 
 		var widthCurveData: FloatKeyframe[] = this.trailFilter.widthCurve;
 		var widthCurve: FloatKeyframe[] = [];

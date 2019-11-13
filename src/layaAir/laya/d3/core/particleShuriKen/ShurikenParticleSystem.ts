@@ -44,6 +44,7 @@ import { ShuriKenParticle3DShaderDeclaration } from "./ShuriKenParticle3DShaderD
 import { ShurikenParticleData } from "./ShurikenParticleData";
 import { ShurikenParticleRenderer } from "./ShurikenParticleRenderer";
 import { Quaternion } from "../../math/Quaternion";
+import { IndexFormat } from "../../graphics/IndexFormat";
 
 
 /**
@@ -86,9 +87,6 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 
 	/**@internal */
 	private static _type: number = GeometryElement._typeCounter++;
-
-	/** @internal */
-	private _tempRotationMatrix: Matrix4x4 = new Matrix4x4();
 
 	/** @internal */
 	_boundingSphere: BoundSphere = null;
@@ -261,11 +259,11 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 	/**开始颜色模式，0为恒定颜色，2为两个恒定颜色的随机插值,缺少2种模式。*/
 	startColorType: number = 0;
 	/**开始颜色，0模式。*/
-	startColorConstant: Vector4 = null;
+	startColorConstant: Vector4 = new Vector4(1, 1, 1, 1);;
 	/**最小开始颜色，1模式。*/
-	startColorConstantMin: Vector4 = null;
+	startColorConstantMin: Vector4 = new Vector4(0, 0, 0, 0);
 	/**最大开始颜色，1模式。*/
-	startColorConstantMax: Vector4 = null;
+	startColorConstantMax: Vector4 = new Vector4(1, 1, 1, 1);
 
 	/**重力敏感度。*/
 	gravityModifier: number = 0;
@@ -286,12 +284,11 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 	/**是否为性能模式,性能模式下会延迟粒子释放。*/
 	isPerformanceMode: boolean = false;
 
-	/**获取最大粒子数。*/
+	/**最大粒子数。*/
 	get maxParticles(): number {
 		return this._bufferMaxParticles - 1;
 	}
 
-	/**设置最大粒子数,注意:谨慎修改此属性，有性能损耗。*/
 	set maxParticles(value: number) {//TODO:是否要重置其它参数
 		var newMaxParticles: number = value + 1;
 		if (newMaxParticles !== this._bufferMaxParticles) {
@@ -327,15 +324,12 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 	}
 
 	/**
-	 * 获取形状。
+	 * 形状。
 	 */
 	get shape(): BaseShape {
 		return this._shape;
 	}
 
-	/**
-	 * 设置形状。
-	 */
 	set shape(value: BaseShape) {
 		if (this._shape !== value) {
 			if (value && value.enable)
@@ -378,15 +372,12 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 	}
 
 	/**
-	 * 获取开始生命周期模式,0为固定时间，1为渐变时间，2为两个固定之间的随机插值,3为两个渐变时间的随机插值。
+	 * 开始生命周期模式,0为固定时间，1为渐变时间，2为两个固定之间的随机插值,3为两个渐变时间的随机插值。
 	 */
 	get startLifetimeType(): number {
 		return this._startLifetimeType;
 	}
 
-	/**
-	 * 设置开始生命周期模式,0为固定时间，1为渐变时间，2为两个固定之间的随机插值,3为两个渐变时间的随机插值。
-	 */
 	set startLifetimeType(value: number) {
 		//if (value !== _startLifetimeType){
 		var i: number, n: number;
@@ -418,15 +409,12 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 	}
 
 	/**
-	 * 获取开始生命周期，0模式,单位为秒。
+	 * 开始生命周期，0模式,单位为秒。
 	 */
 	get startLifetimeConstant(): number {
 		return this._startLifetimeConstant;
 	}
 
-	/**
-	 * 设置开始生命周期，0模式,单位为秒。
-	 */
 	set startLifetimeConstant(value: number) {
 		if (this._startLifetimeType === 0)
 			this._maxStartLifetime = value;
@@ -434,15 +422,12 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 	}
 
 	/**
-	 * 获取开始渐变生命周期，1模式,单位为秒。
+	 * 开始渐变生命周期，1模式,单位为秒。
 	 */
 	get startLifeTimeGradient(): GradientDataNumber {
 		return this._startLifeTimeGradient;
 	}
 
-	/**
-	 * 设置开始渐变生命周期，1模式,单位为秒。
-	 */
 	set startLifeTimeGradient(value: GradientDataNumber) {//无法使用if (_startLifeTimeGradient !== value)过滤，同一个GradientDataNumber可能修改了值,因此所有startLifeTime属性都统一处理
 		if (this._startLifetimeType === 1) {
 			this._maxStartLifetime = -Number.MAX_VALUE;
@@ -453,15 +438,12 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 	}
 
 	/**
-	 * 获取最小开始生命周期，2模式,单位为秒。
+	 * 最小开始生命周期，2模式,单位为秒。
 	 */
 	get startLifetimeConstantMin(): number {
 		return this._startLifetimeConstantMin;
 	}
 
-	/**
-	 * 设置最小开始生命周期，2模式,单位为秒。
-	 */
 	set startLifetimeConstantMin(value: number) {
 		if (this._startLifetimeType === 2)
 			this._maxStartLifetime = Math.max(value, this._startLifetimeConstantMax);
@@ -470,15 +452,12 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 
 
 	/**
-	 * 获取最大开始生命周期，2模式,单位为秒。
+	 * 最大开始生命周期，2模式,单位为秒。
 	 */
 	get startLifetimeConstantMax(): number {
 		return this._startLifetimeConstantMax;
 	}
 
-	/**
-	 * 设置最大开始生命周期，2模式,单位为秒。
-	 */
 	set startLifetimeConstantMax(value: number) {
 		if (this._startLifetimeType === 2)
 			this._maxStartLifetime = Math.max(this._startLifetimeConstantMin, value);
@@ -488,15 +467,12 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 
 
 	/**
-	 * 获取开始渐变最小生命周期，3模式,单位为秒。
+	 * 开始渐变最小生命周期，3模式,单位为秒。
 	 */
 	get startLifeTimeGradientMin(): GradientDataNumber {
 		return this._startLifeTimeGradientMin;
 	}
 
-	/**
-	 * 设置开始渐变最小生命周期，3模式,单位为秒。
-	 */
 	set startLifeTimeGradientMin(value: GradientDataNumber) {
 		if (this._startLifetimeType === 3) {
 			var i: number, n: number;
@@ -510,15 +486,12 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 	}
 
 	/**
-	 * 获取开始渐变最大生命周期，3模式,单位为秒。
+	 * 开始渐变最大生命周期，3模式,单位为秒。
 	 */
 	get startLifeTimeGradientMax(): GradientDataNumber {
 		return this._startLifeTimeGradientMax;
 	}
 
-	/**
-	 * 设置开始渐变最大生命周期，3模式,单位为秒。
-	 */
 	set startLifeTimeGradientMax(value: GradientDataNumber) {
 		if (this._startLifetimeType === 3) {
 			var i: number, n: number;
@@ -532,23 +505,18 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 	}
 
 	/**
-	 * 获取生命周期速度,注意:如修改该值的某些属性,需重新赋值此属性才可生效。
-	 * @return 生命周期速度.
+	 * 生命周期速度,注意:如修改该值的某些属性,需重新赋值此属性才可生效。
 	 */
 	get velocityOverLifetime(): VelocityOverLifetime {
 		return this._velocityOverLifetime;
 	}
 
-	/**
-	 * 设置生命周期速度,注意:如修改该值的某些属性,需重新赋值此属性才可生效。
-	 * @param value 生命周期速度.
-	 */
 	set velocityOverLifetime(value: VelocityOverLifetime) {
 		var shaDat: ShaderData = this._owner._render._shaderValues;
 		if (value) {
 			var velocity: GradientVelocity = value.velocity;
 			var velocityType: number = velocity.type;
-			if (value.enbale) {
+			if (value.enable) {
 				switch (velocityType) {
 					case 0:
 						shaDat.addDefine(ShuriKenParticle3DShaderDeclaration.SHADERDEFINE_VELOCITYOVERLIFETIMECONSTANT);
@@ -604,22 +572,17 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 	}
 
 	/**
-	 * 获取生命周期颜色,注意:如修改该值的某些属性,需重新赋值此属性才可生效。
-	 * @return 生命周期颜色
+	 * 生命周期颜色,注意:如修改该值的某些属性,需重新赋值此属性才可生效。
 	 */
 	get colorOverLifetime(): ColorOverLifetime {
 		return this._colorOverLifetime;
 	}
 
-	/**
-	 * 设置生命周期颜色,注意:如修改该值的某些属性,需重新赋值此属性才可生效。
-	 * @param value 生命周期颜色
-	 */
 	set colorOverLifetime(value: ColorOverLifetime) {
 		var shaDat: ShaderData = this._owner._render._shaderValues;
 		if (value) {
 			var color: GradientColor = value.color;
-			if (value.enbale) {
+			if (value.enable) {
 				switch (color.type) {
 					case 1:
 						shaDat.addDefine(ShuriKenParticle3DShaderDeclaration.SHADERDEFINE_COLOROVERLIFETIME);
@@ -663,24 +626,19 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 	}
 
 	/**
-	 * 获取生命周期尺寸,注意:如修改该值的某些属性,需重新赋值此属性才可生效。
-	 * @return 生命周期尺寸
+	 * 生命周期尺寸,注意:如修改该值的某些属性,需重新赋值此属性才可生效。
 	 */
 	get sizeOverLifetime(): SizeOverLifetime {
 		return this._sizeOverLifetime;
 	}
 
-	/**
-	 * 设置生命周期尺寸,注意:如修改该值的某些属性,需重新赋值此属性才可生效。
-	 * @param value 生命周期尺寸
-	 */
 	set sizeOverLifetime(value: SizeOverLifetime) {
 		var shaDat: ShaderData = this._owner._render._shaderValues;
 		if (value) {
 			var size: GradientSize = value.size;
 			var sizeSeparate: boolean = size.separateAxes;
 			var sizeType: number = size.type;
-			if (value.enbale) {
+			if (value.enable) {
 				switch (sizeType) {
 					case 0:
 						if (sizeSeparate)
@@ -737,17 +695,12 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 	}
 
 	/**
-	 * 获取生命周期旋转,注意:如修改该值的某些属性,需重新赋值此属性才可生效。
-	 * @return 生命周期旋转。
+	 * 生命周期旋转,注意:如修改该值的某些属性,需重新赋值此属性才可生效。
 	 */
 	get rotationOverLifetime(): RotationOverLifetime {
 		return this._rotationOverLifetime;
 	}
 
-	/**
-	 * 设置生命周期旋转,注意:如修改该值的某些属性,需重新赋值此属性才可生效。
-	 * @param value 生命周期旋转。
-	 */
 	set rotationOverLifetime(value: RotationOverLifetime) {
 		var shaDat: ShaderData = this._owner._render._shaderValues;
 		if (value) {
@@ -758,7 +711,7 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 
 			var rotationSeparate: boolean = rotation.separateAxes;
 			var rotationType: number = rotation.type;
-			if (value.enbale) {
+			if (value.enable) {
 				if (rotationSeparate)
 					shaDat.addDefine(ShuriKenParticle3DShaderDeclaration.SHADERDEFINE_ROTATIONOVERLIFETIMESEPERATE);
 				else
@@ -840,17 +793,12 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 	}
 
 	/**
-	 * 获取生命周期纹理动画,注意:如修改该值的某些属性,需重新赋值此属性才可生效。
-	 * @return 生命周期纹理动画。
+	 * 生命周期纹理动画,注意:如修改该值的某些属性,需重新赋值此属性才可生效。
 	 */
 	get textureSheetAnimation(): TextureSheetAnimation {
 		return this._textureSheetAnimation;
 	}
 
-	/**
-	 * 设置生命周期纹理动画,注意:如修改该值的某些属性,需重新赋值此属性才可生效。
-	 * @param value 生命周期纹理动画。
-	 */
 	set textureSheetAnimation(value: TextureSheetAnimation) {
 		var shaDat: ShaderData = this._owner._render._shaderValues;
 		if (value) {
@@ -896,16 +844,7 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 		this._textureSheetAnimation = value;
 	}
 
-	_getVertexBuffer(index: number = 0): VertexBuffer3D {
-		if (index === 0)
-			return this._vertexBuffer;
-		else
-			return null;
-	}
 
-	_getIndexBuffer(): IndexBuffer3D {
-		return this._indexBuffer;
-	}
 
 	constructor(owner: ShuriKenParticle3D) {
 		super();
@@ -970,12 +909,6 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 		this.startRotationConstantMinSeparate = new Vector3(0, 0, 0);
 		this.startRotationConstantMaxSeparate = new Vector3(0, 0, 0);
 
-		this.randomizeRotationDirection = 0.0;
-		this.startColorType = 0;
-		this.startColorConstant = new Vector4(1, 1, 1, 1);
-		this.startColorConstantMin = new Vector4(1, 1, 1, 1);
-		this.startColorConstantMax = new Vector4(1, 1, 1, 1);
-
 		this.gravityModifier = 0.0;
 		this.simulationSpace = 1;
 		this.scaleMode = 0;
@@ -987,7 +920,24 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 		this.isPerformanceMode = true;
 
 		this._emission = new Emission();
-		this._emission.enbale = true;
+		this._emission.enable = true;
+	}
+
+	/**
+	 * @internal
+	 */
+	_getVertexBuffer(index: number = 0): VertexBuffer3D {
+		if (index === 0)
+			return this._vertexBuffer;
+		else
+			return null;
+	}
+
+	/**
+	 * @internal
+	 */
+	_getIndexBuffer(): IndexBuffer3D {
+		return this._indexBuffer;
 	}
 
 	/**
@@ -1066,7 +1016,7 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 		var startMinVelocity: Vector3 = new Vector3(minDirection.x * minStartSpeed, minDirection.y * minStartSpeed, minDirection.z * minStartSpeed);
 		var startMaxVelocity: Vector3 = new Vector3(maxDirection.x * maxStartSpeed, maxDirection.y * maxStartSpeed, maxDirection.z * maxStartSpeed);
 
-		if (this._velocityOverLifetime && this._velocityOverLifetime.enbale) {
+		if (this._velocityOverLifetime && this._velocityOverLifetime.enable) {
 			var lifeMinVelocity: Vector3;
 			var lifeMaxVelocity: Vector3;
 			var velocity: GradientVelocity = this._velocityOverLifetime.velocity;
@@ -1119,7 +1069,7 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 		}
 
 		var minStratPosition: Vector3, maxStratPosition: Vector3;
-		if (this._velocityOverLifetime && this._velocityOverLifetime.enbale) {
+		if (this._velocityOverLifetime && this._velocityOverLifetime.enable) {
 			//var minLifePosition:Vector3, maxLifePosition:Vector3;
 			//switch (_velocityOverLifetime.velocity.type) {
 			//case 0: 
@@ -1197,7 +1147,7 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 				break;
 		}
 
-		if (this._sizeOverLifetime && this._sizeOverLifetime.enbale) {
+		if (this._sizeOverLifetime && this._sizeOverLifetime.enable) {
 			var size: GradientSize = this._sizeOverLifetime.size;
 			maxSize *= this._sizeOverLifetime.size.getMaxSizeInGradient();
 		}
@@ -1218,7 +1168,7 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 				var minStretchVelocity: Vector3 = ShurikenParticleSystem._tempVector33;
 				var minStretchPosition: Vector3 = ShurikenParticleSystem._tempVector34;
 
-				if (this._velocityOverLifetime && this._velocityOverLifetime.enbale) {
+				if (this._velocityOverLifetime && this._velocityOverLifetime.enable) {
 					//TODO:
 				} else {
 					Vector3.multiply(velocityScale, startMaxVelocity, maxStretchVelocity);
@@ -1316,7 +1266,7 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 		}
 
 
-		if (this._emission.enbale && this._isEmitting && !this._isPaused)
+		if (this._emission.enable && this._isEmitting && !this._isPaused)
 			this._advanceTime(elapsedTime, this._currentTime);
 	}
 
@@ -1342,7 +1292,7 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 			return;
 		}
 
-		if (this._emission.enbale)
+		if (this._emission.enable)
 			this._advanceTime(time, time);//TODO:如果time，time均为零brust无效
 	}
 
@@ -1469,7 +1419,7 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 		var render: ShurikenParticleRenderer = this._ownerRender;
 		var renderMode: number = render.renderMode;
 		if (renderMode !== -1 && this.maxParticles > 0) {
-			var indices: Uint16Array, i: number, j: number, m: number, indexOffset: number, perPartOffset: number, vertexDeclaration: VertexDeclaration;;
+			var indices: Uint16Array, i: number, j: number, m: number, indexOffset: number, perPartOffset: number, vertexDeclaration: VertexDeclaration;
 			var vbMemorySize: number = 0, memorySize: number = 0;
 			var mesh: Mesh = render.mesh;
 			if (renderMode === 4) {
@@ -1499,7 +1449,7 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 					this._indexStride = mesh._indexBuffer.indexCount;
 					var indexDatas: Uint16Array = mesh._indexBuffer.getData();
 					var indexCount: number = this._bufferMaxParticles * this._indexStride;
-					this._indexBuffer = new IndexBuffer3D(IndexBuffer3D.INDEXTYPE_USHORT, indexCount, gl.STATIC_DRAW);
+					this._indexBuffer = new IndexBuffer3D(IndexFormat.UInt16, indexCount, gl.STATIC_DRAW);
 					indices = new Uint16Array(indexCount);
 
 					memorySize = vbMemorySize + indexCount * 2;
@@ -1557,7 +1507,7 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 				}
 
 				this._indexStride = 6;
-				this._indexBuffer = new IndexBuffer3D(IndexBuffer3D.INDEXTYPE_USHORT, this._bufferMaxParticles * 6, gl.STATIC_DRAW);
+				this._indexBuffer = new IndexBuffer3D(IndexFormat.UInt16, this._bufferMaxParticles * 6, gl.STATIC_DRAW);
 				indices = new Uint16Array(this._bufferMaxParticles * 6);
 				for (i = 0; i < this._bufferMaxParticles; i++) {
 					indexOffset = i * 6;
@@ -1572,7 +1522,6 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 				this._indexBuffer.setData(indices);
 
 				memorySize = vbMemorySize + this._bufferMaxParticles * 6 * 2;
-
 
 				this._bufferState.bind();
 				this._bufferState.applyVertexBuffer(this._vertexBuffer);
@@ -1659,9 +1608,32 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 		if (particleAge >= ShurikenParticleData.startLifeTime)//如果时间已大于声明周期，则直接跳过,TODO:提前优化
 			return true;
 
+		var pos: Vector3, rot: Quaternion;
+		if (this.simulationSpace == 0) {
+			pos = transform.position;
+			rot = transform.rotation;
+		}
+
+		//StartSpeed
+		var startSpeed: number;
+		switch (this.startSpeedType) {
+			case 0:
+				startSpeed = this.startSpeedConstant;
+				break;
+			case 2:
+				if (this.autoRandomSeed) {
+					startSpeed = MathUtil.lerp(this.startSpeedConstantMin, this.startSpeedConstantMax, Math.random());
+				} else {
+					this._rand.seed = this._randomSeeds[8];
+					startSpeed = MathUtil.lerp(this.startSpeedConstantMin, this.startSpeedConstantMax, this._rand.getFloat());
+					this._randomSeeds[8] = this._rand.seed;
+				}
+				break;
+		}
+
 
 		var randomVelocityX: number, randomVelocityY: number, randomVelocityZ: number, randomColor: number, randomSize: number, randomRotation: number, randomTextureAnimation: number;
-		var needRandomVelocity: boolean = this._velocityOverLifetime && this._velocityOverLifetime.enbale;
+		var needRandomVelocity: boolean = this._velocityOverLifetime && this._velocityOverLifetime.enable;
 		if (needRandomVelocity) {
 			var velocityType: number = this._velocityOverLifetime.velocity.type;
 			if (velocityType === 2 || velocityType === 3) {
@@ -1682,7 +1654,7 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 		} else {
 			needRandomVelocity = false;
 		}
-		var needRandomColor: boolean = this._colorOverLifetime && this._colorOverLifetime.enbale;
+		var needRandomColor: boolean = this._colorOverLifetime && this._colorOverLifetime.enable;
 		if (needRandomColor) {
 			var colorType: number = this._colorOverLifetime.color.type;
 			if (colorType === 3) {
@@ -1699,7 +1671,7 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 		} else {
 			needRandomColor = false;
 		}
-		var needRandomSize: boolean = this._sizeOverLifetime && this._sizeOverLifetime.enbale;
+		var needRandomSize: boolean = this._sizeOverLifetime && this._sizeOverLifetime.enable;
 		if (needRandomSize) {
 			var sizeType: number = this._sizeOverLifetime.size.type;
 			if (sizeType === 3) {
@@ -1716,7 +1688,7 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 		} else {
 			needRandomSize = false;
 		}
-		var needRandomRotation: boolean = this._rotationOverLifetime && this._rotationOverLifetime.enbale;
+		var needRandomRotation: boolean = this._rotationOverLifetime && this._rotationOverLifetime.enable;
 		if (needRandomRotation) {
 			var rotationType: number = this._rotationOverLifetime.angularVelocity.type;
 			if (rotationType === 2 || rotationType === 3) {
@@ -1844,20 +1816,7 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 			this._vertices[offset++] = ShurikenParticleData.startRotation[2];
 
 			//StartSpeed
-			switch (this.startSpeedType) {
-				case 0:
-					this._vertices[offset++] = this.startSpeedConstant;
-					break;
-				case 2:
-					if (this.autoRandomSeed) {
-						this._vertices[offset++] = MathUtil.lerp(this.startSpeedConstantMin, this.startSpeedConstantMax, Math.random());
-					} else {
-						this._rand.seed = this._randomSeeds[8];
-						this._vertices[offset++] = MathUtil.lerp(this.startSpeedConstantMin, this.startSpeedConstantMax, this._rand.getFloat());
-						this._randomSeeds[8] = this._rand.seed;
-					}
-					break;
-			}
+			this._vertices[offset++] = startSpeed;
 
 			// (_vertices[offset] = XX);TODO:29预留
 			needRandomColor && (this._vertices[offset + 1] = randomColor);
@@ -1873,8 +1832,6 @@ export class ShurikenParticleSystem extends GeometryElement implements IClone {
 			switch (this.simulationSpace) {
 				case 0:
 					offset += 8;
-					var pos: Vector3 = transform.position;
-					var rot: Quaternion = transform.rotation;
 					this._vertices[offset++] = pos.x;
 					this._vertices[offset++] = pos.y;
 					this._vertices[offset++] = pos.z;

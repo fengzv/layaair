@@ -1,14 +1,13 @@
 import { Config3D } from "../../../Config3D";
-import { ILaya3D } from "../../../ILaya3D";
 import { InlcudeFile } from "../../webgl/utils/InlcudeFile";
 import { ShaderCompile } from "../../webgl/utils/ShaderCompile";
 import { ShaderNode } from "../../webgl/utils/ShaderNode";
-import { WebGL } from "../../webgl/WebGL";
 import { RenderState } from "../core/material/RenderState";
 import { Vector3 } from "../math/Vector3";
 import { DefineDatas } from "./DefineDatas";
 import { Shader3D } from "./Shader3D";
 import { ShaderInstance } from "./ShaderInstance";
+import { ShaderVariant } from "./ShaderVariantCollection";
 import { SubShader } from "./SubShader";
 
 /**
@@ -17,6 +16,8 @@ import { SubShader } from "./SubShader";
 export class ShaderPass extends ShaderCompile {
 	/**@internal */
 	private static _defineString: Array<string> = [];
+	/**@internal */
+	private static _debugDefineString: Array<string> = [];
 
 	/**@internal */
 	private _owner: SubShader;
@@ -28,8 +29,9 @@ export class ShaderPass extends ShaderCompile {
 	private _cacheShaderHierarchy: number = 1;
 	/**@internal */
 	private _renderState: RenderState = new RenderState();
+
 	/**@internal */
-	private _validDefine: DefineDatas = new DefineDatas();
+	_validDefine: DefineDatas = new DefineDatas();
 
 	/**
 	 * 获取渲染状态。
@@ -171,12 +173,34 @@ export class ShaderPass extends ShaderCompile {
 		}
 	}
 
+	/**
+	 * @internal
+	 */
+	_addDebugShaderVariantCollection(compileDefine: DefineDatas): void {
+		var dbugShaderVariantInfo: ShaderVariant = Shader3D._debugShaderVariantInfo;
+		var debugSubShader: SubShader = this._owner;
+		var debugShader: Shader3D = debugSubShader._owner;
+		var deugDefines: string[] = ShaderPass._debugDefineString;
+		Shader3D._getNamesByDefineData(compileDefine, deugDefines);
+		if (!Config3D._config._multiLighting) {
+			var index = deugDefines.indexOf("LEGACYSINGLELIGHTING");
+			(index !== -1) && (deugDefines.splice(index, 1));
+		}
+		if (dbugShaderVariantInfo)
+			dbugShaderVariantInfo.setValue(debugShader, debugShader._subShaders.indexOf(debugSubShader), debugSubShader._passes.indexOf(this), deugDefines);
+		else
+			Shader3D._debugShaderVariantInfo = dbugShaderVariantInfo = new ShaderVariant(debugShader, debugShader._subShaders.indexOf(debugSubShader), debugSubShader._passes.indexOf(this), deugDefines);
+		Shader3D.debugShaderVariantCollection.add(dbugShaderVariantInfo);
+	}
+
 
 	/**
 	 * @internal
 	 */
 	withCompile(compileDefine: DefineDatas): ShaderInstance {
 		compileDefine._intersectionDefineDatas(this._validDefine);
+		if (Shader3D.debugMode)//add shader variant info to debug ShaderVariantCollection
+			this._addDebugShaderVariantCollection(compileDefine);
 
 		var cacheShaders: object = this._cacheSharders;
 		var maskLength: number = compileDefine._length;
@@ -207,7 +231,7 @@ export class ShaderPass extends ShaderCompile {
 		var clusterSlices: Vector3 = config.lightClusterCount;
 		var defMap: any = {};
 		var defineStr: string = "#define MAX_LIGHT_COUNT " + config.maxLightCount + "\n";
-		defineStr += "#define MAX_LIGHT_COUNT_PER_CLUSTER " + config.maxLightCountPerCluster + "\n";
+		defineStr += "#define MAX_LIGHT_COUNT_PER_CLUSTER " + config._maxAreaLightCountPerClusterAverage + "\n";
 		defineStr += "#define CLUSTER_X_COUNT " + clusterSlices.x + "\n";
 		defineStr += "#define CLUSTER_Y_COUNT " + clusterSlices.y + "\n";
 		defineStr += "#define CLUSTER_Z_COUNT " + clusterSlices.z + "\n";
@@ -238,11 +262,6 @@ export class ShaderPass extends ShaderCompile {
 			var defStr: string = "";
 			var defMask: string = "";
 
-			if (WebGL.shaderHighPrecision) {//输出宏定义要保持设备无关性
-				compileDefine.remove(Shader3D.SHADERDEFINE_HIGHPRECISION);
-				var index = defineString.indexOf("HIGHPRECISION");
-				(index !== -1) && (defineString.splice(index, 1));
-			}
 			if (!config._multiLighting) {
 				compileDefine.remove(Shader3D.SHADERDEFINE_LEGACYSINGALLIGHTING);
 				var index = defineString.indexOf("LEGACYSINGLELIGHTING");

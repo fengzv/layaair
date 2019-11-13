@@ -256,7 +256,7 @@ export class Graphics {
      * @param color		（可选）颜色滤镜。
      * @param blendMode （可选）混合模式。
      */
-    drawTexture(texture: Texture, x: number = 0, y: number = 0, width: number = 0, height: number = 0, matrix: Matrix = null, alpha: number = 1, color: string = null, blendMode: string = null, uv?: number[]): DrawTextureCmd {
+    drawTexture(texture: Texture|null, x: number = 0, y: number = 0, width: number = 0, height: number = 0, matrix: Matrix|null = null, alpha: number = 1, color: string|null = null, blendMode: string|null = null, uv?: number[]): DrawTextureCmd|null {
         if (!texture || alpha < 0.01) return null;
         if (!texture.getIsReady()) return null;
         if (!width) width = texture.sourceWidth;
@@ -289,7 +289,7 @@ export class Graphics {
      * @param texture 纹理。
      * @param pos 绘制次数和坐标。
      */
-    drawTextures(texture: Texture, pos: any[]): DrawTexturesCmd {
+    drawTextures(texture: Texture, pos: any[]): DrawTexturesCmd|null {
         if (!texture) return null;
         return this._saveToCmd(Render._context.drawTextures, DrawTexturesCmd.create.call(this, texture, pos));
     }
@@ -307,7 +307,7 @@ export class Graphics {
      * @param color		颜色变换
      * @param blendMode	blend模式
      */
-    drawTriangles(texture: Texture, x: number, y: number, vertices: Float32Array, uvs: Float32Array, indices: Uint16Array, matrix: Matrix = null, alpha: number = 1, color: string = null, blendMode: string = null, colorNum: number = null): DrawTrianglesCmd {
+    drawTriangles(texture: Texture, x: number, y: number, vertices: Float32Array, uvs: Float32Array, indices: Uint16Array, matrix: Matrix = null, alpha: number = 1, color: string = null, blendMode: string = null, colorNum: number = undefined): DrawTrianglesCmd {
         return this._saveToCmd(Render._context.drawTriangles, DrawTrianglesCmd.create.call(this, texture, x, y, vertices, uvs, indices, matrix, alpha, color, blendMode, colorNum));
     }
 
@@ -322,7 +322,7 @@ export class Graphics {
      * @param offset	（可选）贴图纹理偏移
      *
      */
-    fillTexture(texture: Texture, x: number, y: number, width: number = 0, height: number = 0, type: string = "repeat", offset: Point = null): FillTextureCmd {
+    fillTexture(texture: Texture, x: number, y: number, width: number = 0, height: number = 0, type: string = "repeat", offset: Point|null = null): FillTextureCmd|null {
         if (texture && texture.getIsReady())
             return this._saveToCmd(Render._context._fillTexture, FillTextureCmd.create.call(this, texture, x, y, width, height, type, offset || Point.EMPTY, {}));
         else
@@ -559,7 +559,7 @@ export class Graphics {
         if (!tex) {
             tex = new Texture();
             tex.load(url);
-            ILaya.Loader.cacheRes(url, tex);
+            ILaya.Loader.cacheTexture(url, tex);
             tex.once(Event.READY, this, this.drawImage, [tex, x, y, width, height]);
         } else {
             if (!tex.getIsReady()) {

@@ -10,6 +10,7 @@ import { BaseMaterial } from "./laya/d3/core/material/BaseMaterial";
 import { BlinnPhongMaterial } from "./laya/d3/core/material/BlinnPhongMaterial";
 import { EffectMaterial } from "./laya/d3/core/material/EffectMaterial";
 import { ExtendTerrainMaterial } from "./laya/d3/core/material/ExtendTerrainMaterial";
+import { Material } from "./laya/d3/core/material/Material";
 import { PBRSpecularMaterial } from "./laya/d3/core/material/PBRSpecularMaterial";
 import { PBRStandardMaterial } from "./laya/d3/core/material/PBRStandardMaterial";
 import { SkyBoxMaterial } from "./laya/d3/core/material/SkyBoxMaterial";
@@ -47,6 +48,7 @@ import { VertexShurikenParticleMesh } from "./laya/d3/graphics/Vertex/VertexShur
 import { VertexElementFormat } from "./laya/d3/graphics/VertexElementFormat";
 import { HalfFloatUtils } from "./laya/d3/math/HalfFloatUtils";
 import { Matrix4x4 } from "./laya/d3/math/Matrix4x4";
+import { BulletInteractive } from "./laya/d3/physics/BulletInteractive";
 import { CharacterController } from "./laya/d3/physics/CharacterController";
 import { Physics3D } from "./laya/d3/physics/Physics3D";
 import { PhysicsCollider } from "./laya/d3/physics/PhysicsCollider";
@@ -64,6 +66,7 @@ import { PrimitiveMesh } from "./laya/d3/resource/models/PrimitiveMesh";
 import { SkyBox } from "./laya/d3/resource/models/SkyBox";
 import { SkyDome } from "./laya/d3/resource/models/SkyDome";
 import { TextureCube } from "./laya/d3/resource/TextureCube";
+import { Shader3D } from "./laya/d3/shader/Shader3D";
 import { ShaderData } from "./laya/d3/shader/ShaderData";
 import { ShaderInit3D } from "./laya/d3/shader/ShaderInit3D";
 import { ShaderInstance } from "./laya/d3/shader/ShaderInstance";
@@ -74,20 +77,19 @@ import { Node } from "./laya/display/Node";
 import { Event } from "./laya/events/Event";
 import { CommandEncoder } from "./laya/layagl/CommandEncoder";
 import { LayaGL } from "./laya/layagl/LayaGL";
+import { LayaGLRunner } from "./laya/layagl/LayaGLRunner";
 import { Loader } from "./laya/net/Loader";
 import { LoaderManager } from "./laya/net/LoaderManager";
 import { URL } from "./laya/net/URL";
 import { Render } from "./laya/renders/Render";
-import { BaseTexture } from "./laya/resource/BaseTexture";
 import { Resource } from "./laya/resource/Resource";
 import { Texture2D } from "./laya/resource/Texture2D";
+import { TextureFormat } from "./laya/resource/TextureFormat";
 import { ClassUtils } from "./laya/utils/ClassUtils";
 import { Handler } from "./laya/utils/Handler";
 import { RunDriver } from "./laya/utils/RunDriver";
 import { WebGL } from "./laya/webgl/WebGL";
 import { WebGLContext } from "./laya/webgl/WebGLContext";
-import { TextureFormat } from "./laya/resource/TextureFormat";
-
 /**
  * <code>Laya3D</code> 类用于初始化3D设置。
  */
@@ -134,8 +136,8 @@ export class Laya3D {
 	 * 获取是否可以启用物理。
 	 * @param 是否启用物理。
 	 */
-	static get enbalePhysics(): any {
-		return Physics3D._enbalePhysics;
+	static get enablePhysics(): any {
+		return Physics3D._enablePhysics;
 	}
 
 	/**
@@ -181,8 +183,9 @@ export class Laya3D {
 				return new CommandEncoder(this, reserveSize, adjustSize, isSyncToRenderThread);
 			}
 		}
-		config._multiLighting = config.enbaleMultiLight && SystemUtils.supportTextureFormat(TextureFormat.R32G32B32A32);
+		config._multiLighting = config.enableMultiLight && SystemUtils.supportTextureFormat(TextureFormat.R32G32B32A32);
 
+		ILaya3D.Shader3D = Shader3D;
 		ILaya3D.Scene3D = Scene3D;
 		ILaya3D.MeshRenderStaticBatchManager = MeshRenderStaticBatchManager;
 		ILaya3D.MeshRenderDynamicBatchManager = MeshRenderDynamicBatchManager;
@@ -204,8 +207,8 @@ export class Laya3D {
 		SubMeshInstanceBatch.__init__();
 		SubMeshDynamicBatch.__init__();
 
-		Physics3D._physics3D = (window as any).Physics3D;
-		if (Physics3D._physics3D) {
+		Physics3D._bullet = (window as any).Physics3D;
+		if (Physics3D._bullet) {
 			StaticPlaneColliderShape.__init__();
 			ColliderShape.__init__();
 			CompoundColliderShape.__init__();
@@ -230,6 +233,7 @@ export class Laya3D {
 		Scene3D.__init__();
 		MeshRenderStaticBatchManager.__init__();
 
+		Material.__initDefine__();
 		BaseMaterial.__initDefine__();
 		BlinnPhongMaterial.__initDefine__();
 		PBRStandardMaterial.__initDefine__();
@@ -306,7 +310,7 @@ export class Laya3D {
 		createMap["lh"] = [Laya3D.HIERARCHY, Scene3DUtils._parse];
 		createMap["ls"] = [Laya3D.HIERARCHY, Scene3DUtils._parseScene];
 		createMap["lm"] = [Laya3D.MESH, Mesh._parse];
-		createMap["lmat"] = [Laya3D.MATERIAL, BaseMaterial._parse];
+		createMap["lmat"] = [Laya3D.MATERIAL, Material._parse];
 		createMap["ltc"] = [Laya3D.TEXTURECUBE, TextureCube._parse];
 		createMap["jpg"] = [Laya3D.TEXTURE2D, Texture2D._parse];
 		createMap["jpeg"] = [Laya3D.TEXTURE2D, Texture2D._parse];
@@ -337,59 +341,55 @@ export class Laya3D {
 	}
 
 	private static enableNative3D(): void {
-		if (Render.isConchApp) {
-			var shaderData: any = ShaderData;
-			var shader3D: any = ShaderInstance;
-			var skinnedMeshRender: any = SkinnedMeshRenderer;
-			var avatar: any = Avatar;
-			var frustumCulling: any = FrustumCulling;
-			var meshRender: any = MeshRenderer;
-			if (Render.supportWebGLPlusRendering) {
-				//替换ShaderData的函数
-				shaderData.prototype._initData = shaderData.prototype._initDataForNative;
-				shaderData.prototype.setBool = shaderData.prototype.setBoolForNative;
-				shaderData.prototype.getBool = shaderData.prototype.getBoolForNative;
-				shaderData.prototype.setInt = shaderData.prototype.setIntForNative;
-				shaderData.prototype.getInt = shaderData.prototype.getIntForNative;
-				shaderData.prototype.setNumber = shaderData.prototype.setNumberForNative;
-				shaderData.prototype.getNumber = shaderData.prototype.getNumberForNative;
-				shaderData.prototype.setVector = shaderData.prototype.setVectorForNative;
-				shaderData.prototype.getVector = shaderData.prototype.getVectorForNative;
-				shaderData.prototype.setVector2 = shaderData.prototype.setVector2ForNative;
-				shaderData.prototype.getVector2 = shaderData.prototype.getVector2ForNative;
-				shaderData.prototype.setVector3 = shaderData.prototype.setVector3ForNative;
-				shaderData.prototype.getVector3 = shaderData.prototype.getVector3ForNative;
-				shaderData.prototype.setQuaternion = shaderData.prototype.setQuaternionForNative;
-				shaderData.prototype.getQuaternion = shaderData.prototype.getQuaternionForNative;
-				shaderData.prototype.setMatrix4x4 = shaderData.prototype.setMatrix4x4ForNative;
-				shaderData.prototype.getMatrix4x4 = shaderData.prototype.getMatrix4x4ForNative;
-				shaderData.prototype.setBuffer = shaderData.prototype.setBufferForNative;
-				shaderData.prototype.getBuffer = shaderData.prototype.getBufferForNative;
-				shaderData.prototype.setTexture = shaderData.prototype.setTextureForNative;
-				shaderData.prototype.getTexture = shaderData.prototype.getTextureForNative;
-				shaderData.prototype.setAttribute = shaderData.prototype.setAttributeForNative;
-				shaderData.prototype.getAttribute = shaderData.prototype.getAttributeForNative;
-				shaderData.prototype.cloneTo = shaderData.prototype.cloneToForNative;
-				shaderData.prototype.getData = shaderData.prototype.getDataForNative;
-				shader3D.prototype._uniformMatrix2fv = shader3D.prototype._uniformMatrix2fvForNative;
-				shader3D.prototype._uniformMatrix3fv = shader3D.prototype._uniformMatrix3fvForNative;
-				shader3D.prototype._uniformMatrix4fv = shader3D.prototype._uniformMatrix4fvForNative;
-			}
-			if (Render.supportWebGLPlusCulling) {
-				frustumCulling.renderObjectCulling = FrustumCulling.renderObjectCullingNative;
-			}
-
-			if (Render.supportWebGLPlusAnimation) {
-				avatar.prototype._cloneDatasToAnimator = avatar.prototype._cloneDatasToAnimatorNative;
-				var animationClip: any = AnimationClip;
-				animationClip.prototype._evaluateClipDatasRealTime = animationClip.prototype._evaluateClipDatasRealTimeForNative;
-				skinnedMeshRender.prototype._computeSkinnedData = skinnedMeshRender.prototype._computeSkinnedDataForNative;
-			}
+		var shaderData: any = ShaderData;
+		var shader3D: any = ShaderInstance;
+		var skinnedMeshRender: any = SkinnedMeshRenderer;
+		var avatar: any = Avatar;
+		var frustumCulling: any = FrustumCulling;
+		var meshRender: any = MeshRenderer;
+		if (Render.supportWebGLPlusRendering) {
+			//替换ShaderData的函数
+			shaderData.prototype._initData = shaderData.prototype._initDataForNative;
+			shaderData.prototype.setBool = shaderData.prototype.setBoolForNative;
+			shaderData.prototype.getBool = shaderData.prototype.getBoolForNative;
+			shaderData.prototype.setInt = shaderData.prototype.setIntForNative;
+			shaderData.prototype.getInt = shaderData.prototype.getIntForNative;
+			shaderData.prototype.setNumber = shaderData.prototype.setNumberForNative;
+			shaderData.prototype.getNumber = shaderData.prototype.getNumberForNative;
+			shaderData.prototype.setVector = shaderData.prototype.setVectorForNative;
+			shaderData.prototype.getVector = shaderData.prototype.getVectorForNative;
+			shaderData.prototype.setVector2 = shaderData.prototype.setVector2ForNative;
+			shaderData.prototype.getVector2 = shaderData.prototype.getVector2ForNative;
+			shaderData.prototype.setVector3 = shaderData.prototype.setVector3ForNative;
+			shaderData.prototype.getVector3 = shaderData.prototype.getVector3ForNative;
+			shaderData.prototype.setQuaternion = shaderData.prototype.setQuaternionForNative;
+			shaderData.prototype.getQuaternion = shaderData.prototype.getQuaternionForNative;
+			shaderData.prototype.setMatrix4x4 = shaderData.prototype.setMatrix4x4ForNative;
+			shaderData.prototype.getMatrix4x4 = shaderData.prototype.getMatrix4x4ForNative;
+			shaderData.prototype.setBuffer = shaderData.prototype.setBufferForNative;
+			shaderData.prototype.getBuffer = shaderData.prototype.getBufferForNative;
+			shaderData.prototype.setTexture = shaderData.prototype.setTextureForNative;
+			shaderData.prototype.getTexture = shaderData.prototype.getTextureForNative;
+			shaderData.prototype.setAttribute = shaderData.prototype.setAttributeForNative;
+			shaderData.prototype.getAttribute = shaderData.prototype.getAttributeForNative;
+			shaderData.prototype.cloneTo = shaderData.prototype.cloneToForNative;
+			shaderData.prototype.getData = shaderData.prototype.getDataForNative;
+			shader3D.prototype._uniformMatrix2fv = shader3D.prototype._uniformMatrix2fvForNative;
+			shader3D.prototype._uniformMatrix3fv = shader3D.prototype._uniformMatrix3fvForNative;
+			shader3D.prototype._uniformMatrix4fv = shader3D.prototype._uniformMatrix4fvForNative;
+			LayaGLRunner.uploadShaderUniforms = LayaGLRunner.uploadShaderUniformsForNative;
 		}
-		WebGL.shaderHighPrecision = false;
-		var gl: WebGLRenderingContext = LayaGL.instance;
-		var precisionFormat: any = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT);
-		precisionFormat.precision ? WebGL.shaderHighPrecision = true : WebGL.shaderHighPrecision = false;
+
+		if (Render.supportWebGLPlusCulling) {
+			frustumCulling.renderObjectCulling = FrustumCulling.renderObjectCullingNative;
+		}
+
+		if (Render.supportWebGLPlusAnimation) {
+			avatar.prototype._cloneDatasToAnimator = avatar.prototype._cloneDatasToAnimatorNative;
+			var animationClip: any = AnimationClip;
+			animationClip.prototype._evaluateClipDatasRealTime = animationClip.prototype._evaluateClipDatasRealTimeForNative;
+			skinnedMeshRender.prototype._computeSkinnedData = skinnedMeshRender.prototype._computeSkinnedDataForNative;
+		}
 	}
 
 	/**
@@ -484,9 +484,18 @@ export class Laya3D {
 						materials[i].path = Laya3D._addHierarchyInnerUrls(secondLevelUrls, subUrls, urlVersion, hierarchyBasePath, materials[i].path, Laya3D.MATERIAL);
 				break;
 			case "ShuriKenParticle3D":
-				var parMeshPath: string = props.meshPath;
-				(parMeshPath) && (props.meshPath = Laya3D._addHierarchyInnerUrls(firstLevelUrls, subUrls, urlVersion, hierarchyBasePath, parMeshPath, Laya3D.MESH));
-				props.material.path = Laya3D._addHierarchyInnerUrls(secondLevelUrls, subUrls, urlVersion, hierarchyBasePath, props.material.path, Laya3D.MATERIAL);
+				if (props.main) {
+					var resources: any = props.renderer.resources;
+					var mesh: string = resources.mesh;
+					var material: string = resources.material;
+					(mesh) && (resources.mesh = Laya3D._addHierarchyInnerUrls(firstLevelUrls, subUrls, urlVersion, hierarchyBasePath, mesh, Laya3D.MESH));
+					(material) && (resources.material = Laya3D._addHierarchyInnerUrls(secondLevelUrls, subUrls, urlVersion, hierarchyBasePath, material, Laya3D.MATERIAL));
+				}
+				else {//兼容代码
+					var parMeshPath: string = props.meshPath;
+					(parMeshPath) && (props.meshPath = Laya3D._addHierarchyInnerUrls(firstLevelUrls, subUrls, urlVersion, hierarchyBasePath, parMeshPath, Laya3D.MESH));
+					props.material.path = Laya3D._addHierarchyInnerUrls(secondLevelUrls, subUrls, urlVersion, hierarchyBasePath, props.material.path, Laya3D.MATERIAL);
+				}
 				break;
 			case "Terrain":
 				Laya3D._addHierarchyInnerUrls(fourthLelUrls, subUrls, urlVersion, hierarchyBasePath, props.dataPath, Laya3D.TERRAINRES);
@@ -699,7 +708,7 @@ export class Laya3D {
 	 */
 	private static _onMateialTexturesLoaded(loader: Loader, processHandler: Handler, lmatData: any, subUrls: any[]): void {
 		loader._cache = loader._createCache;
-		var mat: BaseMaterial = BaseMaterial._parse(lmatData, loader._propertyParams, loader._constructParams);
+		var mat: Material = Material._parse(lmatData, loader._propertyParams, loader._constructParams);
 		Laya3D._endLoad(loader, mat, subUrls);
 		(processHandler) && (processHandler.recover());
 	}
@@ -814,8 +823,10 @@ export class Laya3D {
 	 * @param	height 3D画布高度。
 	 */
 	static init(width: number, height: number, config: Config3D = null, compolete: Handler = null): void {
-		if (Laya3D._isInit)
+		if (Laya3D._isInit) {
+			compolete && compolete.run();
 			return;
+		}
 		Laya3D._isInit = true;
 		(config) && (config.cloneTo(Config3D._config));
 		config = Config3D._config;
@@ -829,12 +840,13 @@ export class Laya3D {
 
 		var physics3D: Function = (window as any).Physics3D;
 		if (physics3D == null) {
-			Physics3D._enbalePhysics = false;
+			Physics3D._enablePhysics = false;
 			Laya3D.__init__(width, height, config);
 			compolete && compolete.run();
 		} else {
-			Physics3D._enbalePhysics = true;
-			physics3D(config.defaultPhysicsMemory * 1024 * 1024).then(function (): void {
+			Physics3D._enablePhysics = true;
+			//should convert MB to pages
+			physics3D(config.defaultPhysicsMemory * 16, BulletInteractive._interactive).then(function (): void {
 				Laya3D.__init__(width, height, config);
 				compolete && compolete.run();
 			});

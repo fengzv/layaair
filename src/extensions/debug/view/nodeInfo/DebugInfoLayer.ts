@@ -1,8 +1,7 @@
-import { Laya } from "./../../../../../../../core/src/Laya";
-import { Sprite } from "../../../../../../../core/src/laya/display/Sprite"
-	import { Event } from "../../../../../../../core/src/laya/events/Event"
-	import { Browser } from "../../../../../../../core/src/laya/utils/Browser"
-	import { DisControlTool } from "../../tools/DisControlTool"
+import { Laya } from "Laya";
+import { Event } from "laya/events/Event"
+import { DisControlTool } from "../../tools/DisControlTool"
+import { Sprite } from "laya/display/Sprite";
 	/**
 	 * ...
 	 * @author ww
@@ -19,7 +18,7 @@ import { Sprite } from "../../../../../../../core/src/laya/display/Sprite"
 		
 		constructor(){
 			super();
-this.nodeRecInfoLayer = new Sprite();
+			this.nodeRecInfoLayer = new Sprite();
 			this.lineLayer = new Sprite();
 			this.txtLayer = new Sprite();
 			this.popLayer = new Sprite();
@@ -45,7 +44,7 @@ this.nodeRecInfoLayer = new Sprite();
 			//if (Browser.onMobile) this.scale(2, 2);
 			Laya.stage.on(Event.DOUBLE_CLICK, this, this.setTop);
 		}
-		 static init():void
+		static init():void
 		{
 			if (!DebugInfoLayer.I)
 			{
@@ -53,11 +52,11 @@ this.nodeRecInfoLayer = new Sprite();
 				Laya.stage.addChild(DebugInfoLayer.I);
 			}
 		}
-		 setTop():void
+		setTop():void
 		{
 			DisControlTool.setTop(this);
 		}
-		 isDebugItem(sprite:Sprite):boolean
+		isDebugItem(sprite:Sprite):boolean
 		{
 			return DisControlTool.isInTree(this, sprite);
 		}

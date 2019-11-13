@@ -1,9 +1,9 @@
 import { Config3D } from "../../../Config3D";
 import { ShaderCompile } from "../../webgl/utils/ShaderCompile";
-import { WebGL } from "../../webgl/WebGL";
 import { DefineDatas } from "./DefineDatas";
 import { ShaderDefine } from "./ShaderDefine";
 import { ShaderPass } from "./ShaderPass";
+import { ShaderVariant, ShaderVariantCollection } from "./ShaderVariantCollection";
 import { SubShader } from "./SubShader";
 
 /**
@@ -54,8 +54,6 @@ export class Shader3D {
 	static PERIOD_SCENE: number = 4;
 
 	/**@internal */
-	static SHADERDEFINE_HIGHPRECISION: ShaderDefine;
-	/**@internal */
 	static SHADERDEFINE_LEGACYSINGALLIGHTING: ShaderDefine;
 
 	/**@internal */
@@ -71,9 +69,14 @@ export class Shader3D {
 	static _preCompileShader: any = {};
 	/**@internal */
 	static _maskMap: Array<object> = [];
+	/**@internal */
+	static _debugShaderVariantInfo: ShaderVariant;
+
 
 	/**是否开启调试模式。 */
 	static debugMode: boolean = true;
+	/**调试着色器变种集合。 */
+	static readonly debugShaderVariantCollection: ShaderVariantCollection = new ShaderVariantCollection();
 
 	/**@internal */
 	_attributeMap: any = null;
@@ -157,7 +160,7 @@ export class Shader3D {
 	 * @param   passIndex  通道索引。
 	 * @param	defineNames 宏定义名字集合。
 	 */
-	static compileShaderByDefineNames(shaderName: string, subShaderIndex: number, passIndex: number, defineNames: Array<string>): void {
+	static compileShaderByDefineNames(shaderName: string, subShaderIndex: number, passIndex: number, defineNames: string[]): void {
 		var shader: Shader3D = Shader3D.find(shaderName);
 		if (shader) {
 			var subShader: SubShader = shader.getSubShaderAt(subShaderIndex);
@@ -169,10 +172,8 @@ export class Shader3D {
 					for (var i: number = 0, n: number = defineNames.length; i < n; i++)
 						compileDefineDatas.add(Shader3D.getDefineByName(defineNames[i]));
 
-					(WebGL.shaderHighPrecision) && (compileDefineDatas.add(Shader3D.SHADERDEFINE_HIGHPRECISION)); //部分低端移动设备不支持高精度shader,所以如果在PC端或高端移动设备输出的宏定义值需做判断移除高精度宏定义
 					(Config3D._config._multiLighting) || (compileDefineDatas.add(Shader3D.SHADERDEFINE_LEGACYSINGALLIGHTING));
 					pass.withCompile(compileDefineDatas);
-
 				} else {
 					console.warn("Shader3D: unknown passIndex.");
 				}
@@ -184,42 +185,6 @@ export class Shader3D {
 		}
 	}
 
-
-	/**
-	 * 通过宏定义遮罩编译shader,建议使用compileShaderByDefineNames。
-	 * @param	shaderName Shader名称。
-	 * @param   subShaderIndex 子着色器索引。
-	 * @param   passIndex  通道索引。
-	 * @param	defineMask 宏定义遮罩集合。
-	 */
-	static compileShader(shaderName: string, subShaderIndex: number, passIndex: number, ...defineMask): void {
-		var shader: Shader3D = Shader3D.find(shaderName);
-		if (shader) {
-			var subShader: SubShader = shader.getSubShaderAt(subShaderIndex);
-			if (subShader) {
-				var pass: ShaderPass = subShader._passes[passIndex];
-				if (pass) {
-					var compileDefineDatas: DefineDatas = Shader3D._compileDefineDatas;
-					var mask: Array<number> = compileDefineDatas._mask;
-					mask.length = 0;
-					for (var i: number = 0, n: number = defineMask.length; i < n; i++)
-						mask.push(defineMask[i]);
-					compileDefineDatas._length = defineMask.length;
-
-					(WebGL.shaderHighPrecision) && (compileDefineDatas.add(Shader3D.SHADERDEFINE_HIGHPRECISION)); //部分低端移动设备不支持高精度shader,所以如果在PC端或高端移动设备输出的宏定义值需做判断移除高精度宏定义
-					(Config3D._config._multiLighting) || (compileDefineDatas.add(Shader3D.SHADERDEFINE_LEGACYSINGALLIGHTING));
-					pass.withCompile(compileDefineDatas);
-
-				} else {
-					console.warn("Shader3D: unknown passIndex.");
-				}
-			} else {
-				console.warn("Shader3D: unknown subShaderIndex.");
-			}
-		} else {
-			console.warn("Shader3D: unknown shader name.");
-		}
-	}
 
 	/**
 	 * 添加预编译shader文件，主要是处理宏定义
@@ -246,10 +211,16 @@ export class Shader3D {
 	_subShaders: SubShader[] = [];
 
 	/**
+	 * 名字。
+	 */
+	get name(): string {
+		return this._name;
+	}
+
+	/**
 	 * 创建一个 <code>Shader3D</code> 实例。
 	 */
 	constructor(name: string, attributeMap: any, uniformMap: any, enableInstancing: boolean) {
-
 		this._name = name;
 		this._attributeMap = attributeMap;
 		this._uniformMap = uniformMap;
@@ -272,6 +243,42 @@ export class Shader3D {
 	 */
 	getSubShaderAt(index: number): SubShader {
 		return this._subShaders[index];
+	}
+
+	/**
+	 * @deprecated
+	 * 通过宏定义遮罩编译shader,建议使用compileShaderByDefineNames。
+	 * @param	shaderName Shader名称。
+	 * @param   subShaderIndex 子着色器索引。
+	 * @param   passIndex  通道索引。
+	 * @param	defineMask 宏定义遮罩集合。
+	 */
+	static compileShader(shaderName: string, subShaderIndex: number, passIndex: number, ...defineMask): void {
+		var shader: Shader3D = Shader3D.find(shaderName);
+		if (shader) {
+			var subShader: SubShader = shader.getSubShaderAt(subShaderIndex);
+			if (subShader) {
+				var pass: ShaderPass = subShader._passes[passIndex];
+				if (pass) {
+					var compileDefineDatas: DefineDatas = Shader3D._compileDefineDatas;
+					var mask: Array<number> = compileDefineDatas._mask;
+					mask.length = 0;
+					for (var i: number = 0, n: number = defineMask.length; i < n; i++)
+						mask.push(defineMask[i]);
+					compileDefineDatas._length = defineMask.length;
+
+					(Config3D._config._multiLighting) || (compileDefineDatas.add(Shader3D.SHADERDEFINE_LEGACYSINGALLIGHTING));
+					pass.withCompile(compileDefineDatas);
+
+				} else {
+					console.warn("Shader3D: unknown passIndex.");
+				}
+			} else {
+				console.warn("Shader3D: unknown subShaderIndex.");
+			}
+		} else {
+			console.warn("Shader3D: unknown shader name.");
+		}
 	}
 
 }

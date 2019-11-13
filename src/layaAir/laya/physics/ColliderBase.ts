@@ -42,10 +42,16 @@ export class ColliderBase extends Component {
         return this._def;
     }
     /**
+     * @internal
      * @override
      */
     protected _onEnable(): void {
-        this.rigidBody || Laya.systemTimer.callLater(this, this._checkRigidBody);
+        if(this.rigidBody){
+            this.refresh();
+        }
+        else{
+            Laya.systemTimer.callLater(this, this._checkRigidBody);
+        }
     }
 
     private _checkRigidBody(): void {
@@ -58,6 +64,7 @@ export class ColliderBase extends Component {
         }
     }
     /**
+     * @internal
      * @override
      */
     protected _onDestroy(): void {

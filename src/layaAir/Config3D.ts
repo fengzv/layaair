@@ -14,24 +14,24 @@ export class Config3D implements IClone {
 	private _maxLightCount: number = 32;
 	/**@internal*/
 	private _lightClusterCount: Vector3 = new Vector3(12, 12, 12);
-	/**@internal*/
-	private _maxLightCountPerCluster: number = 32;
+
 	/**@internal*/
 	_editerEnvironment: boolean = false;
-
+	/**@internal*/
 	_multiLighting: boolean;
+	/**@internal*/
+	_maxAreaLightCountPerClusterAverage: number;
 
 	/** 是否开启抗锯齿。*/
 	isAntialias: boolean = true;
-	/** 设置画布是否透明。*/
+	/** 画布是否包含透明通道。*/
 	isAlpha: boolean = false;
-	/** 设置画布是否预乘。*/
+	/** 画布是否预乘。*/
 	premultipliedAlpha: boolean = true;
-	/** 设置画布的是否开启模板缓冲。*/
+	/** 画布是否开启模板缓冲。*/
 	isStencil: boolean = true;
-	/** 是否开启多光源。*/
-	enbaleMultiLight: boolean = true;
-
+	/** 是否开启多光源,如果场景不需要多光源，关闭后可提升性能。*/
+	enableMultiLight: boolean = true;
 	/** 是否开启八叉树裁剪。*/
 	octreeCulling: boolean = false;
 	/** 八叉树初始化尺寸。*/
@@ -42,7 +42,6 @@ export class Config3D implements IClone {
 	octreeMinNodeSize: number = 2.0;
 	/** 八叉树松散值。*/
 	octreeLooseness: number = 1.25;
-
 	/** 
 	 * 是否开启视锥裁剪调试。
 	 * 如果开启八叉树裁剪,使用红色绘制高层次八叉树节点包围盒,使用蓝色绘制低层次八叉节点包围盒,精灵包围盒和八叉树节点包围盒颜色一致,但Alpha为非透明。如果视锥完全包含八叉树节点,八叉树节点包围盒和精灵包围盒变为蓝色,同样精灵包围盒的Alpha为非透明。
@@ -81,50 +80,32 @@ export class Config3D implements IClone {
 	}
 
 	/**
-	 * X、Y、Z轴的光照集群数量。
+	 * X、Y、Z轴的光照集群数量,Z值会影响Cluster接受区域光(点光、聚光)影响的数量,Math.floor(2048 / lightClusterCount.z - 1) * 4 为每个Cluster的最大平均接受区域光数量,如果每个Cluster所接受光源影响的平均数量大于该值，则较远的Cluster会忽略其中多余的光照影响。
 	 */
 	get lightClusterCount(): Vector3 {
 		return this._lightClusterCount;
 	}
 
 	set lightClusterCount(value: Vector3) {
-		if (!this._checkMaxLightCountPerCluster(this._maxLightCountPerCluster, value.z)) {
-			this._lightClusterCount.setValue(value.x, value.y, 2048 / (Math.ceil(this._maxLightCountPerCluster / 4) + 1));
-			console.warn("Config3D: lightClusterCount component must less equal 128.");
+		if (value.x > 128 || value.y > 128 || value.z > 128) {
+			this._lightClusterCount.setValue(Math.min(value.x, 128), Math.min(value.y, 128), Math.min(value.z, 128));
+			console.warn("Config3D: lightClusterCount X and Y、Z must less equal 128.");
 		}
 		else {
 			value.cloneTo(this._lightClusterCount);
 		}
-	}
 
-	/**
-	 * 每个集群的最大光源数量。
-	 */
-	get maxLightCountPerCluster(): number {
-		return this._maxLightCountPerCluster;
-	}
-
-	set maxLightCountPerCluster(value: number) {
-		if (!this._checkMaxLightCountPerCluster(value, this._lightClusterCount.z)) {
-			this._maxLightCountPerCluster = Math.floor(2048 / this._lightClusterCount.z - 1) * 4;
-			console.warn("Config3D: (Math.ceil(maxLightCountPerCluster/4)+1)*lightClusterCount.z must less than 2048.");
-		}
-		else {
-			this._maxLightCountPerCluster = value;
-		}
+		var maxAreaLightCountWithZ = Math.floor(2048 / this._lightClusterCount.z - 1) * 4;
+		if (maxAreaLightCountWithZ < this._maxLightCount)
+			console.warn("Config3D: if the area light(PointLight、SpotLight) count is large than " + maxAreaLightCountWithZ + ",maybe the far away culster will ingonre some light.");
+		this._maxAreaLightCountPerClusterAverage = Math.min(maxAreaLightCountWithZ, this._maxLightCount);
 	}
 
 	/**
 	 * 创建一个 <code>Config3D</code> 实例。
 	 */
 	constructor() {
-	}
-
-	/**
-	 * @internal
-	 */
-	private _checkMaxLightCountPerCluster(maxLightCountPerCluster: number, clusterCountZ: number): boolean {
-		return Math.ceil((maxLightCountPerCluster / 4) + 1) * clusterCountZ < 2048;
+		this._maxAreaLightCountPerClusterAverage = Math.min(Math.floor(2048 / this._lightClusterCount.z - 1) * 4, this._maxLightCount);
 	}
 
 	/**
@@ -146,9 +127,10 @@ export class Config3D implements IClone {
 		destConfig3D.octreeLooseness = this.octreeLooseness;
 		destConfig3D.debugFrustumCulling = this.debugFrustumCulling;
 		destConfig3D.maxLightCount = this.maxLightCount;
-		destConfig3D.maxLightCountPerCluster = this.maxLightCountPerCluster;
-		destConfig3D.enbaleMultiLight = this.enbaleMultiLight;
-		this.lightClusterCount.cloneTo(destConfig3D.lightClusterCount);
+		destConfig3D.enableMultiLight = this.enableMultiLight;
+		var lightClusterCount: Vector3 = destConfig3D.lightClusterCount;
+		this.lightClusterCount.cloneTo(lightClusterCount);
+		destConfig3D.lightClusterCount = lightClusterCount;
 	}
 
 	/**

@@ -5,10 +5,9 @@
 //  Original author: ww
 ///////////////////////////////////////////////////////////
 
-import { Node } from "../../../../../../core/src/laya/display/Node"
-	import { Sprite } from "../../../../../../core/src/laya/display/Sprite"
-	import { Browser } from "../../../../../../core/src/laya/utils/Browser"
-	import { DebugTool } from "../DebugTool"
+import { Node } from "laya/display/Node"
+import { Sprite } from "laya/display/Sprite"
+import { Browser } from "laya/utils/Browser"
 	
 	/**
 	 * 
@@ -19,24 +18,24 @@ import { Node } from "../../../../../../core/src/laya/display/Node"
 	 */
 	export class TraceTool
 	{
-		constructor(){
-		}
-		 static closeAllLog():void
+		static	_debugtrace:Function;
+		constructor(){}
+		static closeAllLog():void
 		{
 			var logFun:Function;
 			logFun = TraceTool.emptyLog;
 			Browser.window.console.log = logFun;
 		}
-		 static emptyLog():void
+		static emptyLog():void
 		{
 			
 		}
-		 static tempArr:any[]=[];
+		static tempArr:any[]=[];
 		/**
 		 * 打印obj 
 		 * @param obj
 		 */
-		 static traceObj(obj:any):string
+		static traceObj(obj:any):string
 		{
 			TraceTool.tempArr.length = 0;
 			var key:string;
@@ -50,7 +49,7 @@ import { Node } from "../../../../../../core/src/laya/display/Node"
 			console.log(rst);
 			return rst;
 		}
-		 static traceObjR(obj:any):string
+		static traceObjR(obj:any):string
 		{
 			TraceTool.tempArr.length = 0;
 			var key:string;
@@ -64,27 +63,27 @@ import { Node } from "../../../../../../core/src/laya/display/Node"
 			console.log(rst);
 			return rst;
 		}
-		 static traceSize(tar:any):void
+		static traceSize(tar:any):void
 		{
-			DebugTool.dTrace("Size: x:"+tar.x+" y:"+tar.y+" w:"+tar.width+" h:"+tar.height+" scaleX:"+tar.scaleX+" scaleY:"+tar.scaleY);
+			TraceTool._debugtrace("Size: x:"+tar.x+" y:"+tar.y+" w:"+tar.width+" h:"+tar.height+" scaleX:"+tar.scaleX+" scaleY:"+tar.scaleY);
 		}
-		 static traceSplit(msg:string):void
+		static traceSplit(msg:string):void
 		{
 			console.log("---------------------"+msg+"---------------------------");
 		}
-		 static group(gName:any):void
+		static group(gName:any):void
 		{
-			console.group(gName);;
+			console.group(gName);
 		}
-		 static groupEnd():void
+		static groupEnd():void
 		{
-			console.groupEnd();;
+			console.groupEnd();
 		}
 		/**
 		 *  在js中可打印调用堆栈 
 		 * @param life 打印堆栈的深度
 		 */
-		 static getCallStack(life:number=1,s:number=1):string
+		static getCallStack(life:number=1,s:number=1):string
 		{
 			var caller:any;
 			caller=TraceTool.getCallStack;
@@ -106,15 +105,16 @@ import { Node } from "../../../../../../core/src/laya/display/Node"
 			}
 			return msg;
 		}
-		 static Erroer:any = null;
-		 static getCallLoc(index:number=2):string
+
+		static Erroer:any = null;
+		static getCallLoc(index:number=2):string
 		{
 			var loc:string;
 			try {
 				TraceTool.Erroer.i++;
 			} catch (e) {
 				var arr:any[];
-				arr = this.e.stack.replace(/Error\n/).split(/\n/);
+				arr = (this as any).e.stack.replace(/Error\n/).split(/\n/);
 				if (arr[index])
 				{
 					loc= arr[index].replace(/^\s+|\s+$/, "");
@@ -126,20 +126,21 @@ import { Node } from "../../../../../../core/src/laya/display/Node"
 			}
 			return loc;
 		}
-		 static traceCallStack():string
+		
+		static traceCallStack():string
 		{
 			var loc:string;
 			try {
 				TraceTool.Erroer.i++;
 			} catch (e) {
-				 loc= this.e.stack;
+				 loc= (this as any).e.stack;
 			}
 			
 			console.log(loc);
 			return loc;
 		}
 		private static holderDic:any={};
-		 static getPlaceHolder(len:number):string
+		static getPlaceHolder(len:number):string
 		{
 			if(!TraceTool.holderDic.hasOwnProperty(len))
 			{
@@ -154,7 +155,7 @@ import { Node } from "../../../../../../core/src/laya/display/Node"
 			}		
 			return TraceTool.holderDic[len];
 		}
-		 static traceTree(tar:Node,depth:number=0,isFirst:boolean=true):void
+		static traceTree(tar:Node,depth:number=0,isFirst:boolean=true):void
 		{
 			if(isFirst)
 			{
@@ -178,11 +179,11 @@ import { Node } from "../../../../../../core/src/laya/display/Node"
 			}
 			TraceTool.groupEnd();
 		}
-		 static getClassName(tar:any):string
+		static getClassName(tar:any):string
 		{
 			return tar["constructor"].name;
 		}
-		 static traceSpriteInfo(tar:Sprite,showBounds:boolean=true,showSize:boolean=true,showTree:boolean=true):void
+		static traceSpriteInfo(tar:Sprite,showBounds:boolean=true,showSize:boolean=true,showTree:boolean=true):void
 		{
 			if(!(tar instanceof Sprite)) 
 			{
@@ -196,7 +197,7 @@ import { Node } from "../../../../../../core/src/laya/display/Node"
 			}
 			TraceTool.traceSplit("traceSpriteInfo");
 //			trace("Sprite:"+tar.name);
-			DebugTool.dTrace(TraceTool.getClassName(tar)+":"+tar.name);
+			TraceTool._debugtrace(TraceTool.getClassName(tar)+":"+tar.name);
 			if(showTree)
 			{
 				TraceTool.traceTree(tar);

@@ -62,11 +62,11 @@ export class RigidBody extends Component {
     protected _body: any;
 
     private _createBody(): void {
-        if (this._body) return;
+        if (this._body||!this.owner) return;
         var sp: Sprite = (<Sprite>this.owner);
         var box2d: any = (<any>window).box2d;
         var def: any = new box2d.b2BodyDef();
-        var point: Point = (<Sprite>this.owner).localToGlobal(Point.TEMP.setTo(0, 0), false, IPhysics.Physics.I.worldRoot);
+        var point: Point = sp.localToGlobal(Point.TEMP.setTo(0, 0), false, IPhysics.Physics.I.worldRoot);
         def.position.Set(point.x / IPhysics.Physics.PIXEL_RATIO, point.y / IPhysics.Physics.PIXEL_RATIO);
         def.angle = Utils.toRadian(sp.rotation);
         def.allowSleep = this._allowSleep;
@@ -90,12 +90,14 @@ export class RigidBody extends Component {
         this.resetCollider(false);
     }
     /**
+     * @internal
      * @override
      */
     protected _onAwake(): void {
         this._createBody();
     }
     /**
+     * @internal
      * @override
      */
     protected _onEnable(): void {
@@ -231,6 +233,7 @@ export class RigidBody extends Component {
         Object.defineProperty(sp, prop, { get: this.accessGetSetFunc(sp, prop, "get"), set: getfun, enumerable: false, configurable: true });;
     }
     /**
+     * @internal
      * @override
      */
     protected _onDisable(): void {

@@ -204,8 +204,13 @@ export class RenderSprite {
 		var next: RenderSprite = this._next;
 		if (next == RenderSprite.NORENDER) return;
 		var r: Rectangle = sprite._style.scrollRect;
+		var width = r.width;
+		var height = r.height;
+		if (width === 0 || height === 0) {
+			return;
+		}
 		context.save();
-		context.clipRect(x, y, r.width, r.height);
+		context.clipRect(x, y, width, height);
 		next._fun.call(next, sprite, context, x - r.x, y - r.y);
 		context.restore();
 	}
@@ -439,10 +444,10 @@ export class RenderSprite {
 
 		var _cacheStyle: CacheStyle = sprite._cacheStyle;
 		var _next: RenderSprite = this._next;
-		var canvas: HTMLCanvas = _cacheStyle.canvas;
+		var canvas = _cacheStyle.canvas;
 
 		var tCacheType: string = _cacheStyle.cacheAs;
-		var scaleInfo: Point = _cacheStyle._calculateCacheRect(sprite, tCacheType, 0, 0);
+		_cacheStyle._calculateCacheRect(sprite, tCacheType, 0, 0);
 
 		if (!canvas) {
 			canvas = _cacheStyle.canvas = ((new WebGLCacheAsNormalCanvas(context, sprite) as any) as HTMLCanvas);

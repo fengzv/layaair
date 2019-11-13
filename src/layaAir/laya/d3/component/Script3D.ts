@@ -22,6 +22,9 @@ export class Script3D extends Component {
 		return false;
 	}
 
+	/**
+	 * @internal
+	 */
 	private _checkProcessTriggers(): boolean {
 		var prototype: any = Script3D.prototype;
 		if (this.onTriggerEnter !== prototype.onTriggerEnter)
@@ -33,6 +36,9 @@ export class Script3D extends Component {
 		return false;
 	}
 
+	/**
+	 * @internal
+	 */
 	private _checkProcessCollisions(): boolean {
 		var prototype: any = Script3D.prototype;
 		if (this.onCollisionEnter !== prototype.onCollisionEnter)
@@ -46,6 +52,7 @@ export class Script3D extends Component {
 
 	/**
 	 * @inheritDoc
+	 * @internal
 	 * @override
 	 */
 	protected _onAwake(): void {
@@ -56,30 +63,61 @@ export class Script3D extends Component {
 
 	/**
 	 * @inheritDoc
+	 * @internal
 	 * @override
 	 */
 	protected _onEnable(): void {
 		(<Scene3D>this.owner._scene)._addScript(this);
 		var proto: any = Script3D.prototype;
-		if (this.onKeyDown !== proto.onKeyDown) {
+		if (this.onKeyDown !== proto.onKeyDown)
 			Laya.stage.on(Event.KEY_DOWN, this, this.onKeyDown);
-		}
-		if (this.onKeyPress !== proto.onKeyPress) {
+
+		if (this.onKeyPress !== proto.onKeyPress)
 			Laya.stage.on(Event.KEY_PRESS, this, this.onKeyUp);
-		}
-		if (this.onKeyUp !== proto.onKeyUp) {
+
+		if (this.onKeyUp !== proto.onKeyUp)
 			Laya.stage.on(Event.KEY_UP, this, this.onKeyUp);
-		}
+		this.onEnable();
 	}
 
 	/**
 	 * @inheritDoc
+	 * @internal
 	 * @override
 	 */
 	protected _onDisable(): void {
 		(<Scene3D>this.owner._scene)._removeScript(this);
 		this.owner.offAllCaller(this);
 		Laya.stage.offAllCaller(this);
+		this.onDisable();
+	}
+
+	/**
+	 * @inheritDoc
+	 * @internal
+	 * @override
+	 */
+	protected _onDestroy(): void {
+		var scripts: Script3D[] = ((<Sprite3D>this.owner))._scripts;
+		scripts.splice(scripts.indexOf(this), 1);
+
+		var sprite: Sprite3D = (<Sprite3D>this.owner);
+		sprite._needProcessTriggers = false;
+		for (var i: number = 0, n: number = scripts.length; i < n; i++) {
+			if (scripts[i]._checkProcessTriggers()) {
+				sprite._needProcessTriggers = true;
+				break;
+			}
+		}
+
+		sprite._needProcessCollisions = false;
+		for (i = 0, n = scripts.length; i < n; i++) {
+			if (scripts[i]._checkProcessCollisions()) {
+				sprite._needProcessCollisions = true;
+				break;
+			}
+		}
+		this.onDestroy();
 	}
 
 	/**
@@ -107,33 +145,6 @@ export class Script3D extends Component {
 
 		if (!sprite._needProcessTriggers)
 			sprite._needProcessTriggers = this._checkProcessTriggers();//检查是否需要处理触发器
-	}
-
-	/**
-	 * @inheritDoc
-	 * @override
-	 */
-	protected _onDestroy(): void {
-		var scripts: Script3D[] = ((<Sprite3D>this.owner))._scripts;
-		scripts.splice(scripts.indexOf(this), 1);
-
-		var sprite: Sprite3D = (<Sprite3D>this.owner);
-		sprite._needProcessTriggers = false;
-		for (var i: number = 0, n: number = scripts.length; i < n; i++) {
-			if (scripts[i]._checkProcessTriggers()) {
-				sprite._needProcessTriggers = true;
-				break;
-			}
-		}
-
-		sprite._needProcessCollisions = false;
-		for (i = 0, n = scripts.length; i < n; i++) {
-			if (scripts[i]._checkProcessCollisions()) {
-				sprite._needProcessCollisions = true;
-				break;
-			}
-		}
-		this.onDestroy();
 	}
 
 	/**

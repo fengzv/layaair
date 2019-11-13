@@ -25,15 +25,17 @@ export class Widget extends Component {
     }
 		/**
 		 * @override
+         * @internal
 		 */
-		/*override*/ protected _onEnable(): void {
+		protected _onEnable(): void {
         if (this.owner.parent) this._onAdded();
         else this.owner.once(Event.ADDED, this, this._onAdded);
     }
 		/**
 		 * @override
+         * @internal
 		 */
-		/*override*/ protected _onDisable(): void {
+		protected _onDisable(): void {
         this.owner.off(Event.ADDED, this, this._onAdded);
         if (this.owner.parent) this.owner.parent.off(Event.RESIZE, this, this._onParentResize);
     }
@@ -54,7 +56,9 @@ export class Widget extends Component {
      * 父容器的 <code>Event.RESIZE</code> 事件侦听处理函数。
      */
     protected _onParentResize(): void {
-        if (this.resetLayoutX() || this.resetLayoutY()) this.owner.event(Event.RESIZE);
+        var flagX = this.resetLayoutX();
+        var flagY = this.resetLayoutY();
+        if (flagX || flagY) this.owner.event(Event.RESIZE);
     }
 
     /**

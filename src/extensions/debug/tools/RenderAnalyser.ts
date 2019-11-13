@@ -1,8 +1,8 @@
 import { IDTools } from "./IDTools";
 import { ObjectTools } from "./ObjectTools";
-import { Laya } from "./../../../../../../core/src/Laya";
-import { Sprite } from "../../../../../../core/src/laya/display/Sprite"
-	import { NodeConsts } from "../view/nodeInfo/NodeConsts"
+import { Laya } from "Laya";
+import { Sprite } from "laya/display/Sprite"
+import { NodeConsts } from "../view/nodeInfo/NodeConsts"
 	/**
 	 * ...
 	 * @author ww
@@ -14,8 +14,18 @@ import { Sprite } from "../../../../../../core/src/laya/display/Sprite"
 			this.working = true;
 		}
 		
-		 static I:RenderAnalyser = new RenderAnalyser();
-		 render(sprite:Sprite, time:number):void
+		private static _instance:RenderAnalyser;
+		static get I():RenderAnalyser{
+			if(!RenderAnalyser._instance){
+				RenderAnalyser._instance = new RenderAnalyser();
+			}
+			return RenderAnalyser._instance;
+		}
+		static set I(value){
+			RenderAnalyser._instance = value;
+		}
+		
+		render(sprite:Sprite, time:number):void
 		{
 			this.addTime(sprite, time);
 		}

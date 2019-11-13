@@ -6,7 +6,6 @@ import { Bezier } from "../maths/Bezier";
 import { Matrix } from "../maths/Matrix";
 import { Point } from "../maths/Point";
 import { Rectangle } from "../maths/Rectangle";
-import { ColorUtils } from "../utils/ColorUtils";
 import { FontInfo } from "../utils/FontInfo";
 import { HTMLChar } from "../utils/HTMLChar";
 import { Stat } from "../utils/Stat";
@@ -49,12 +48,11 @@ import { RenderState2D } from "../webgl/utils/RenderState2D";
 import { VertexBuffer2D } from "../webgl/utils/VertexBuffer2D";
 import { WebGLContext } from "../webgl/WebGLContext";
 import { Bitmap } from "./Bitmap";
-import { Texture } from "./Texture";
-import { BaseTexture } from "./BaseTexture";
 import { HTMLCanvas } from "./HTMLCanvas";
 import { RenderTexture2D } from "./RenderTexture2D";
-import { Texture2D } from "./Texture2D";
 import { RenderTextureFormat } from "./RenderTextureFormat";
+import { Texture } from "./Texture";
+import { Texture2D } from "./Texture2D";
 
 /**
  * @private
@@ -121,7 +119,7 @@ export class Context {
 
 	/**@private */
 	get lineJoin(): string {
-		return null;
+		return '';
 	}
 
 	/**@private */
@@ -130,7 +128,7 @@ export class Context {
 
 	/**@private */
 	get lineCap(): string {
-		return null;
+		return '';
 	}
 
 	/**@private */
@@ -139,7 +137,7 @@ export class Context {
 
 	/**@private */
 	get miterLimit(): string {
-		return null;
+		return '';
 	}
 
 	/**@private */
@@ -247,7 +245,6 @@ export class Context {
 		this.strokeStyle = lineColor;
 		this.lineWidth = lineWidth;
 		//var points:Array = args[2];
-		var i: number = 2, n: number = points.length;
 		this.addPath(points.slice(), false, false, x, y);
 		this.stroke();
 	}
@@ -311,7 +308,6 @@ export class Context {
 	/**@internal */
 	_drawPoly(x: number, y: number, points: any[], fillColor: any, lineColor: any, lineWidth: number, isConvexPolygon: boolean, vid: number): void {
 		//var points:Array = args[2];
-		var i: number = 2, n: number = points.length;
 		this.beginPath();
 		//poly一定是close的
 		this.addPath(points.slice(), true, isConvexPolygon, x, y);
@@ -366,6 +362,7 @@ export class Context {
 		var gl: WebGLRenderingContext = LayaGL.instance;
 		WebGLContext.setBlend(gl, true);//还原2D设置
 		WebGLContext.setBlendEquation(gl, gl.FUNC_ADD);
+		BlendMode.activeBlendFunction=null;		// 防止submit不设置blend
 		WebGLContext.setBlendFunc(gl, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 		WebGLContext.setDepthTest(gl, false);
 		WebGLContext.setCullFace(gl, false);
@@ -377,17 +374,15 @@ export class Context {
 	/**@internal */
 	_id: number = ++Context._COUNT;
 
-	private _other: ContextParams = null;
+	private _other: ContextParams|null = null;
 	private _renderNextSubmitIndex: number = 0;
 
-	private _path: Path = null;
-	private _primitiveValue2D: Value2D;
+	private _path: Path|null = null;
 	/**@internal */
 	_drawCount: number = 1;
 	private _width: number = Context._MAXSIZE;
 	private _height: number = Context._MAXSIZE;
 	private _renderCount: number = 0;
-	private _isConvexCmd: boolean = true;	//arc等是convex的，moveTo,linTo就不是了
 	/**@internal */
 	_submits: any = null;
 	/**@internal */
@@ -396,11 +391,11 @@ export class Context {
 	_submitKey: SubmitKey = new SubmitKey();	//当前将要使用的设置。用来跟上一次的_curSubmit比较
 
 	/**@internal */
-	_mesh: MeshQuadTexture = null;			//用Mesh2D代替_vb,_ib. 当前使用的mesh
+	_mesh: MeshQuadTexture|null = null;			//用Mesh2D代替_vb,_ib. 当前使用的mesh
 	/**@internal */
-	_pathMesh: MeshVG = null;			//矢量专用mesh。
+	_pathMesh: MeshVG|null = null;			//矢量专用mesh。
 	/**@internal */
-	_triangleMesh: MeshTexture = null;	//drawTriangles专用mesh。由于ib不固定，所以不能与_mesh通用
+	_triangleMesh: MeshTexture|null = null;	//drawTriangles专用mesh。由于ib不固定，所以不能与_mesh通用
 
 	meshlist: any[] = [];	//本context用到的mesh
 
@@ -419,7 +414,7 @@ export class Context {
 	_clipInfoID: number = 0;					//用来区分是不是clipinfo已经改变了
 	private _clipID_Gen: number = 0;			//生成clipid的，原来是  _clipInfoID=++_clipInfoID 这样会有问题，导致兄弟clip的id都相同
 	/**@internal */
-	_curMat: Matrix = null;
+	_curMat: Matrix;
 
 	//计算矩阵缩放的缓存
 	/**@internal */
@@ -435,11 +430,11 @@ export class Context {
 	/**@internal */
 	_save: any = null;
 	/**@internal */
-	_targets: RenderTexture2D = null;
+	_targets: RenderTexture2D|null = null;
 	/**@internal */
-	_charSubmitCache: CharSubmitCache = null;
+	_charSubmitCache: CharSubmitCache|null = null;
 	/**@internal */
-	_saveMark: SaveMark = null;
+	_saveMark: SaveMark|null = null;
 	/**@internal */
 	_shader2D: Shader2D = new Shader2D();	//
 
@@ -448,21 +443,21 @@ export class Context {
 	 * 对于cacheas bitmap的情况，如果图片还没准备好，需要有机会重画，所以要保存sprite。例如在图片
 	 * 加载完成后，调用repaint
 	 */
-	sprite: Sprite = null;
+	sprite: Sprite|null = null;
 
 	/**@internal */
-	public static _textRender: TextRender = null;// new TextRender();
+	public static _textRender: TextRender|null = null;// new TextRender();
 	/**@internal */
 	_italicDeg: number = 0;//文字的倾斜角度
 	/**@internal */
-	_lastTex: Texture = null; //上次使用的texture。主要是给fillrect用，假装自己也是一个drawtexture
+	_lastTex: Texture|null = null; //上次使用的texture。主要是给fillrect用，假装自己也是一个drawtexture
 
 	private _fillColor: number = 0;
 	private _flushCnt: number = 0;
 
-	private defTexture: Texture = null;	//给fillrect用
+	private defTexture: Texture|null = null;	//给fillrect用
 	/**@internal */
-	_colorFiler: ColorFilter = null;
+	_colorFiler: ColorFilter|null = null;
 
 	drawTexAlign: boolean = false;		// 按照像素对齐
 	/**@internal */
@@ -504,7 +499,8 @@ export class Context {
 		if (!this._submits)
 			return;
 
-		this._curMat.destroy();
+		this._curMat && this._curMat.destroy();
+		//@ts-ignore
 		this._curMat = null;
 		this._shader2D.destroy();
 		this._shader2D = null;
@@ -579,8 +575,6 @@ export class Context {
 		//_vb.clear();
 		this._mesh.clearVB();
 
-		this._renderCount++;
-
 		//_targets && (_targets.repaint = true);
 
 		this._drawCount = 1;
@@ -647,9 +641,12 @@ export class Context {
 		if (value) {
 			//缺省的RGB没有a，不合理把。况且没必要自定义一个常量。
 			//深度格式为-1表示不用深度缓存。
-			this._targets || (this._targets = new RenderTexture2D(this._width, this._height, RenderTextureFormat.R8G8B8A8, -1));
+			let rt = this._targets;
 			if (!this._width || !this._height)
 				throw Error("asBitmap no size!");
+			if(!rt || rt.width!=this._width||rt.height!=this._height){
+				this._targets = new RenderTexture2D(this._width, this._height, RenderTextureFormat.R8G8B8A8, -1)
+			}
 		} else {
 			this._targets && this._targets.destroy();
 			this._targets = null;
@@ -954,7 +951,7 @@ export class Context {
 			//这个优化先不要了，因为没太弄明白wrapmode的设置，总是不起作用。
 			//if(texture.uvrect[2]<1.0||texture.uvrect[3]<1.0)//这表示是大图集中的一部分，只有这时候才用特殊shader
 			sv.defines.add(ShaderDefines2D.FILLTEXTURE);
-			((<any>sv)).u_TexRange = texuvRect;
+			((<any>sv)).u_TexRange = texuvRect.concat();
 			submit = this._curSubmit = SubmitTexture.create(this, this._mesh, sv);
 			this._submits[this._submits._length++] = submit;
 			this._copyClipInfo(submit, this._globalClipMatrix);
@@ -1054,7 +1051,7 @@ export class Context {
 	/**@internal */
 	_drawTextureM(tex: Texture, x: number, y: number, width: number, height: number, m: Matrix, alpha: number, uv: any[]): boolean {
 		// 注意sprite要保存，因为后面会被冲掉
-		var cs: Sprite = this.sprite;
+		var cs = this.sprite;
 		if (!tex._getSource(function (): void {
 			if (cs) {
 				cs.repaint();	// 原来是calllater，callater对于cacheas normal是没有机会执行的
@@ -1157,9 +1154,9 @@ export class Context {
 		}
 	}
 
-	drawCallOptimize(enbale: boolean): boolean {
-		this._charSubmitCache.enable(enbale, this);
-		return enbale;
+	drawCallOptimize(enable: boolean): boolean {
+		this._charSubmitCache.enable(enable, this);
+		return enable;
 	}
 
 	/**
@@ -1419,7 +1416,7 @@ export class Context {
 	 * @param	alpha
 	 */
 	drawTextureWithTransform(tex: Texture, x: number, y: number, width: number, height: number, transform: Matrix, tx: number, ty: number, alpha: number, blendMode: string, colorfilter: ColorFilter = null, uv?: number[]): void {
-		var oldcomp: string = null;
+		var oldcomp: string ;
 		var curMat: Matrix = this._curMat;
 		if (blendMode) {
 			oldcomp = this.globalCompositeOperation;
@@ -2417,6 +2414,9 @@ export class Context {
 	 * @param	w
 	 */
 	private _fillTexture_h(tex: Texture, imgid: number, uv: ArrayLike<number>, oriw: number, orih: number, x: number, y: number, w: number): void {
+		if(oriw<=0) 
+			console.error('_fillTexture_h error: oriw must>0');
+
 		var stx: number = x;
 		var num: number = Math.floor(w / oriw);
 		var left: number = w % oriw;
@@ -2447,6 +2447,8 @@ export class Context {
 	 * @param	h
 	 */
 	private _fillTexture_v(tex: Texture, imgid: number, uv: ArrayLike<number>, oriw: number, orih: number, x: number, y: number, h: number): void {
+		if(orih<=0) 
+			console.error('_fillTexture_v error: orih must>0');
 		var sty: number = y;
 		var num: number = Math.floor(h / orih);
 		var left: number = h % orih;

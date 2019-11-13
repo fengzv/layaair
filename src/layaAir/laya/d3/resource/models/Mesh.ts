@@ -6,6 +6,7 @@ import { Bounds } from "../../core/Bounds";
 import { BufferState } from "../../core/BufferState";
 import { IClone } from "../../core/IClone";
 import { IndexBuffer3D } from "../../graphics/IndexBuffer3D";
+import { IndexFormat } from "../../graphics/IndexFormat";
 import { SubMeshInstanceBatch } from "../../graphics/SubMeshInstanceBatch";
 import { VertexMesh } from "../../graphics/Vertex/VertexMesh";
 import { VertexBuffer3D } from "../../graphics/VertexBuffer3D";
@@ -20,6 +21,22 @@ import { Vector3 } from "../../math/Vector3";
 import { Vector4 } from "../../math/Vector4";
 import { Utils3D } from "../../utils/Utils3D";
 import { SubMesh } from "./SubMesh";
+import { LayaGL } from "../../../layagl/LayaGL";
+
+
+/**
+ * @internal
+ */
+export class skinnedMatrixCache {
+	readonly subMeshIndex: number;
+	readonly batchIndex: number;
+	readonly batchBoneIndex: number;
+	constructor(subMeshIndex: number, batchIndex: number, batchBoneIndex: number) {
+		this.subMeshIndex = subMeshIndex;
+		this.batchIndex = batchIndex;
+		this.batchBoneIndex = batchBoneIndex;
+	}
+}
 
 /**
  * <code>Mesh</code> 类用于创建文件网格数据模板。
@@ -35,21 +52,21 @@ export class Mesh extends Resource implements IClone {
 	/** @internal */
 	private _tempVector32: Vector3 = new Vector3();
 	/** @internal */
-	private static _nativeTempVector30: any;
+	private static _nativeTempVector30: number;
 	/** @internal */
-	private static _nativeTempVector31: any;
+	private static _nativeTempVector31: number;
 	/** @internal */
-	private static _nativeTempVector32: any;
+	private static _nativeTempVector32: number;
 
 	/**
  	* @internal
  	*/
 	static __init__(): void {
-		var physics3D: any = Physics3D._physics3D;
+		var physics3D: any = Physics3D._bullet;
 		if (physics3D) {
-			Mesh._nativeTempVector30 = new physics3D.btVector3(0, 0, 0);
-			Mesh._nativeTempVector31 = new physics3D.btVector3(0, 0, 0);
-			Mesh._nativeTempVector32 = new physics3D.btVector3(0, 0, 0);
+			Mesh._nativeTempVector30 = physics3D.btVector3_create(0, 0, 0);
+			Mesh._nativeTempVector31 = physics3D.btVector3_create(0, 0, 0);
+			Mesh._nativeTempVector32 = physics3D.btVector3_create(0, 0, 0);
 		}
 	}
 
@@ -58,7 +75,7 @@ export class Mesh extends Resource implements IClone {
 	 */
 	static _parse(data: any, propertyParams: any = null, constructParams: any[] = null): Mesh {
 		var mesh: Mesh = new Mesh();
-		MeshReader.read((<ArrayBuffer>data), mesh, mesh._subMeshes);
+		MeshReader.read(<ArrayBuffer>data, mesh, mesh._subMeshes);
 		return mesh;
 	}
 
@@ -72,17 +89,15 @@ export class Mesh extends Resource implements IClone {
 	}
 
 	/** @internal */
-	private _nativeTriangleMesh: any;
+	private _btTriangleMesh: number;
 	/** @internal */
 	private _minVerticesUpdate: number = -1;
 	/** @internal */
 	private _maxVerticesUpdate: number = -1;
 	/** @internal */
 	private _needUpdateBounds: boolean = true;
-
-
 	/** @internal */
-	protected _bounds: Bounds = new Bounds(new Vector3(), new Vector3());
+	private _bounds: Bounds = new Bounds(new Vector3(), new Vector3());
 
 	/** @internal */
 	_isReadable: boolean;
@@ -102,15 +117,14 @@ export class Mesh extends Resource implements IClone {
 	/** @internal */
 	_inverseBindPoses: Matrix4x4[];
 	/** @internal */
-	_bindPoseIndices: Uint16Array;
-	/** @internal */
-	_skinDataPathMarks: any[][];
+	_skinnedMatrixCaches: skinnedMatrixCache[] = [];
 	/** @internal */
 	_vertexCount: number = 0;
+	/** @internal */
+	_indexFormat: IndexFormat = IndexFormat.UInt16;
 
 	/**
-	 * 获取网格的全局默认绑定动作逆矩阵。
-	 * @return  网格的全局默认绑定动作逆矩阵。
+	 * 网格的全局默认绑定动作逆矩阵。
 	 */
 	get inverseAbsoluteBindPoses(): Matrix4x4[] {
 		return this._inverseBindPoses;
@@ -131,8 +145,7 @@ export class Mesh extends Resource implements IClone {
 	}
 
 	/**
-	 * 获取SubMesh的个数。
-	 * @return SubMesh的个数。
+	 * SubMesh的个数。
 	 */
 	get subMeshCount(): number {
 		return this._subMeshes.length;
@@ -151,6 +164,13 @@ export class Mesh extends Resource implements IClone {
 	}
 
 	/**
+	 * 索引格式。
+	 */
+	get indexFormat(): IndexFormat {
+		return this._indexFormat;
+	}
+
+	/**
 	 * 创建一个 <code>Mesh</code> 实例,禁止使用。
 	 * @param isReadable 是否可读。
 	 */
@@ -158,7 +178,6 @@ export class Mesh extends Resource implements IClone {
 		super();
 		this._isReadable = isReadable;
 		this._subMeshes = [];
-		this._skinDataPathMarks = [];
 	}
 
 	/**
@@ -297,6 +316,8 @@ export class Mesh extends Resource implements IClone {
 				default:
 					throw "Mesh:Unknown elementUsage.";
 			}
+			this._minVerticesUpdate = 0;
+			this._maxVerticesUpdate = Number.MAX_SAFE_INTEGER;
 		}
 		else {
 			console.warn("Mesh: the mesh don't have  this VertexElement.");
@@ -311,19 +332,19 @@ export class Mesh extends Resource implements IClone {
 	protected _disposeResource(): void {
 		for (var i: number = 0, n: number = this._subMeshes.length; i < n; i++)
 			this._subMeshes[i].destroy();
-		this._nativeTriangleMesh && (<any>window).Physics3D.destroy(this._nativeTriangleMesh);
+		this._btTriangleMesh && Physics3D._bullet.btStridingMeshInterface_destroy(this._btTriangleMesh);
 		this._vertexBuffer.destroy();
 		this._indexBuffer.destroy();
-		this._setCPUMemory(0);
-		this._setGPUMemory(0);
 		this._bufferState.destroy();
 		this._instanceBufferState.destroy();
+		this._setCPUMemory(0);
+		this._setGPUMemory(0);
 		this._bufferState = null;
 		this._instanceBufferState = null;
 		this._vertexBuffer = null;
 		this._indexBuffer = null;
 		this._subMeshes = null;
-		this._nativeTriangleMesh = null;
+		this._btTriangleMesh = null;
 		this._indexBuffer = null;
 		this._boneNames = null;
 		this._inverseBindPoses = null;
@@ -334,10 +355,8 @@ export class Mesh extends Resource implements IClone {
 	 */
 	_setSubMeshes(subMeshes: SubMesh[]): void {
 		this._subMeshes = subMeshes
-
 		for (var i: number = 0, n: number = subMeshes.length; i < n; i++)
 			subMeshes[i]._indexInMesh = i;
-		this.calculateBounds();
 	}
 
 
@@ -365,12 +384,12 @@ export class Mesh extends Resource implements IClone {
 	 * @internal
 	 */
 	_getPhysicMesh(): any {
-		if (!this._nativeTriangleMesh) {
-			var physics3D: any = (<any>window).Physics3D;
-			var triangleMesh: any = new physics3D.btTriangleMesh();//TODO:独立抽象btTriangleMesh,增加内存复用
-			var nativePositio0: any = Mesh._nativeTempVector30;
-			var nativePositio1: any = Mesh._nativeTempVector31;
-			var nativePositio2: any = Mesh._nativeTempVector32;
+		if (!this._btTriangleMesh) {
+			var bt: any = Physics3D._bullet;
+			var triangleMesh: number = bt.btTriangleMesh_create();//TODO:独立抽象btTriangleMesh,增加内存复用
+			var nativePositio0: number = Mesh._nativeTempVector30;
+			var nativePositio1: number = Mesh._nativeTempVector31;
+			var nativePositio2: number = Mesh._nativeTempVector32;
 			var position0: Vector3 = this._tempVector30;
 			var position1: Vector3 = this._tempVector31;
 			var position2: Vector3 = this._tempVector32;
@@ -393,11 +412,11 @@ export class Mesh extends Resource implements IClone {
 				Utils3D._convertToBulletVec3(position0, nativePositio0, true);
 				Utils3D._convertToBulletVec3(position1, nativePositio1, true);
 				Utils3D._convertToBulletVec3(position2, nativePositio2, true);
-				triangleMesh.addTriangle(nativePositio0, nativePositio1, nativePositio2, true);
+				bt.btTriangleMesh_addTriangle(triangleMesh, nativePositio0, nativePositio1, nativePositio2, true);
 			}
-			this._nativeTriangleMesh = triangleMesh;
+			this._btTriangleMesh = triangleMesh;
 		}
-		return this._nativeTriangleMesh;
+		return this._btTriangleMesh;
 	}
 
 	/**
@@ -407,8 +426,8 @@ export class Mesh extends Resource implements IClone {
 		var min: number = this._minVerticesUpdate;
 		var max: number = this._maxVerticesUpdate;
 		if (min !== -1 && max !== -1) {
-			var offset: number = min * 4;
-			this._vertexBuffer.setData(this._vertexBuffer.getUint8Data().buffer, offset, offset, (max - min) * 4);
+			var offset: number = min;
+			this._vertexBuffer.setData(this._vertexBuffer.getUint8Data().buffer, offset, offset, max - min);
 			this._minVerticesUpdate = -1;
 			this._maxVerticesUpdate = -1;
 		}
@@ -645,9 +664,10 @@ export class Mesh extends Resource implements IClone {
 	}
 
 	/**
-	 * 拷贝并获取网格索引数据的副本。
+	 * 拷贝并获取网格索引的副本。
+	 * @return 网格索引。
 	 */
-	getIndices(): Uint16Array {
+	getIndices(): Uint8Array | Uint16Array | Uint32Array {
 		if (this._isReadable)
 			return this._indexBuffer.getData().slice();
 		else
@@ -656,10 +676,24 @@ export class Mesh extends Resource implements IClone {
 
 	/**
 	 * 设置网格索引。
-	 * @param indices 
+	 * @param indices 网格索引。
 	 */
-	setIndices(indices: Uint16Array): void {
-		this._indexBuffer.setData(indices);
+	setIndices(indices: Uint8Array | Uint16Array | Uint32Array): void {
+		var format: IndexFormat;
+		if (indices instanceof Uint32Array)
+			format = IndexFormat.UInt32;
+		else if (indices instanceof Uint16Array)
+			format = IndexFormat.UInt16;
+		else if (indices instanceof Uint8Array)
+			format = IndexFormat.UInt8;
+
+		var indexBuffer: IndexBuffer3D = this._indexBuffer;
+		if (this._indexFormat !== format || indexBuffer.indexCount !== indices.length) {//format chang and length chang will recreate the indexBuffer
+			indexBuffer.destroy();
+			this._indexBuffer = indexBuffer = new IndexBuffer3D(format, indices.length, LayaGL.instance.STATIC_DRAW, this._isReadable);
+		}
+		indexBuffer.setData(indices);
+		this._indexFormat = format;
 	}
 
 
@@ -707,7 +741,7 @@ export class Mesh extends Resource implements IClone {
 	 * @param	destObject 克隆源。
 	 */
 	cloneTo(destObject: any): void {//[实现IClone接口]
-		var destMesh: Mesh = (<Mesh>destObject);
+		var destMesh: Mesh = <Mesh>destObject;
 		var vb: VertexBuffer3D = this._vertexBuffer;
 		var destVB: VertexBuffer3D = new VertexBuffer3D(vb._byteLength, vb.bufferUsage, vb.canRead);
 		destVB.vertexDeclaration = vb.vertexDeclaration;
@@ -715,7 +749,7 @@ export class Mesh extends Resource implements IClone {
 		destMesh._vertexBuffer = destVB;
 		destMesh._vertexCount = this._vertexCount;
 		var ib: IndexBuffer3D = this._indexBuffer;
-		var destIB: IndexBuffer3D = new IndexBuffer3D(IndexBuffer3D.INDEXTYPE_USHORT, ib.indexCount, ib.bufferUsage, ib.canRead);
+		var destIB: IndexBuffer3D = new IndexBuffer3D(IndexFormat.UInt16, ib.indexCount, ib.bufferUsage, ib.canRead);
 		destIB.setData(ib.getData().slice());
 		destMesh._indexBuffer = destIB;
 
@@ -734,10 +768,12 @@ export class Mesh extends Resource implements IClone {
 		for (i = 0; i < inverseBindPoses.length; i++)
 			destInverseBindPoses[i] = inverseBindPoses[i];
 
-		destMesh._bindPoseIndices = new Uint16Array(this._bindPoseIndices);
-
-		for (i = 0; i < this._skinDataPathMarks.length; i++)
-			destMesh._skinDataPathMarks[i] = this._skinDataPathMarks[i].slice();
+		var cacheLength: number = this._skinnedMatrixCaches.length;
+		destMesh._skinnedMatrixCaches.length = cacheLength;
+		for (i = 0; i < cacheLength; i++) {
+			var skinnedCache: skinnedMatrixCache = this._skinnedMatrixCaches[i];
+			destMesh._skinnedMatrixCaches[i] = new skinnedMatrixCache(skinnedCache.subMeshIndex, skinnedCache.batchIndex, skinnedCache.batchBoneIndex);
+		}
 
 		for (i = 0; i < this.subMeshCount; i++) {
 			var subMesh: SubMesh = this._subMeshes[i];

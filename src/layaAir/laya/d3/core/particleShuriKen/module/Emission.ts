@@ -1,21 +1,21 @@
-import { Burst } from "./Burst";
-import { IClone } from "../../IClone"
-import { Vector3 } from "../../../math/Vector3"
 import { IDestroy } from "../../../../resource/IDestroy";
+import { IClone } from "../../IClone";
+import { Burst } from "./Burst";
 
 /**
  * <code>Emission</code> 类用于粒子发射器。
  */
 export class Emission implements IClone, IDestroy {
+	/** @internal */
 	private _destroyed: boolean;
-	/** 粒子发射速率,每秒发射的个数。*/
-	private _emissionRate: number;
+	/** @internal */
+	private _emissionRate: number = 10;
 
 	/**@internal 粒子的爆裂,不允许修改。*/
 	_bursts: Burst[];
 
 	/**是否启用。*/
-	enbale: boolean;
+	enable: boolean;
 
 	/**
 	 * 设置粒子发射速率。
@@ -48,7 +48,6 @@ export class Emission implements IClone, IDestroy {
 	 */
 	constructor() {
 		this._destroyed = false;
-		this.emissionRate = 10;
 		this._bursts = [];
 	}
 
@@ -135,7 +134,7 @@ export class Emission implements IClone, IDestroy {
 		}
 
 		destEmission._emissionRate = this._emissionRate;
-		destEmission.enbale = this.enbale;
+		destEmission.enable = this.enable;
 	}
 
 	/**

@@ -7,6 +7,8 @@ import { SkinnedMeshSprite3D } from "../../core/SkinnedMeshSprite3D";
 import { IndexBuffer3D } from "../../graphics/IndexBuffer3D";
 import { VertexBuffer3D } from "../../graphics/VertexBuffer3D";
 import { Mesh } from "./Mesh";
+import { LayaGPU } from "../../../webgl/LayaGPU";
+import { IndexFormat } from "../../graphics/IndexFormat";
 
 
 /**
@@ -101,18 +103,35 @@ export class SubMesh extends GeometryElement {
 	 * @override
 	 */
 	_render(state: RenderContext3D): void {
+		var mesh: Mesh = this._mesh;
+		if (mesh.indexFormat === IndexFormat.UInt32 && !LayaGL.layaGPUInstance.supportElementIndexUint32()) {
+			console.warn("SubMesh:this device do not support IndexFormat.UInt32.");
+			return;
+		}
+
 		var gl: WebGLRenderingContext = LayaGL.instance;
-		this._mesh._bufferState.bind();
-		var skinnedDatas: any[] = ((<SkinnedMeshRenderer>state.renderElement.render))._skinnedData;
+		var skinnedDatas: any[] = (<SkinnedMeshRenderer>state.renderElement.render)._skinnedData;
+		var glIndexFormat: number;
+		switch (mesh.indexFormat) {
+			case IndexFormat.UInt32:
+				glIndexFormat = gl.UNSIGNED_INT;
+				break;
+			case IndexFormat.UInt16:
+				glIndexFormat = gl.UNSIGNED_SHORT;
+				break;
+			case IndexFormat.UInt8:
+				glIndexFormat = gl.UNSIGNED_BYTE;
+				break;
+		}
+		mesh._bufferState.bind();
 		if (skinnedDatas) {
 			var subSkinnedDatas: Float32Array[] = skinnedDatas[this._indexInMesh];
-			var boneIndicesListCount: number = this._boneIndicesList.length;
-			for (var i: number = 0; i < boneIndicesListCount; i++) {
+			for (var i: number = 0, n: number = this._boneIndicesList.length; i < n; i++) {
 				state.shader.uploadCustomUniform(SkinnedMeshSprite3D.BONES, subSkinnedDatas[i]);
-				gl.drawElements(gl.TRIANGLES, this._subIndexBufferCount[i], gl.UNSIGNED_SHORT, this._subIndexBufferStart[i] * 2);
+				gl.drawElements(gl.TRIANGLES, this._subIndexBufferCount[i], glIndexFormat, this._subIndexBufferStart[i] * 2);
 			}
 		} else {
-			gl.drawElements(gl.TRIANGLES, this._indexCount, gl.UNSIGNED_SHORT, this._indexStart * 2);
+			gl.drawElements(gl.TRIANGLES, this._indexCount, glIndexFormat, this._indexStart * 2);
 		}
 		Stat.trianglesFaces += this._indexCount / 3;
 		Stat.renderBatches++;

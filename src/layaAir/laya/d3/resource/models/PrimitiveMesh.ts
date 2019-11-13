@@ -8,6 +8,7 @@ import { Vector3 } from "../../math/Vector3";
 import { Mesh } from "./Mesh";
 import { SubMesh } from "./SubMesh";
 import { LayaGL } from "../../../layagl/LayaGL";
+import { IndexFormat } from "../../graphics/IndexFormat";
 
 /**
  * <code>PrimitiveMesh</code> 类用于创建简单网格。
@@ -31,12 +32,10 @@ export class PrimitiveMesh {
 		vertexBuffer.setData(vertices.buffer);
 		mesh._vertexBuffer = vertexBuffer;
 		mesh._vertexCount = vertexBuffer._byteLength / vertexDeclaration.vertexStride;
-		var indexBuffer: IndexBuffer3D = new IndexBuffer3D(IndexBuffer3D.INDEXTYPE_USHORT, indices.length, gl.STATIC_DRAW, true);
+		var indexBuffer: IndexBuffer3D = new IndexBuffer3D(IndexFormat.UInt16, indices.length, gl.STATIC_DRAW, true);
 		indexBuffer.setData(indices);
 		mesh._indexBuffer = indexBuffer;
 
-		var vertexBuffers: VertexBuffer3D[] = [];
-		vertexBuffers[0] = vertexBuffer;
 		mesh._setBuffer(vertexBuffer, indexBuffer);
 
 		subMesh._vertexBuffer = vertexBuffer;
@@ -55,6 +54,7 @@ export class PrimitiveMesh {
 		var subMeshes: SubMesh[] = [];
 		subMeshes.push(subMesh);
 		mesh._setSubMeshes(subMeshes);
+		mesh.calculateBounds();
 		var memorySize: number = vertexBuffer._byteLength + indexBuffer._byteLength;
 		mesh._setCPUMemory(memorySize);
 		mesh._setGPUMemory(memorySize);
@@ -641,18 +641,12 @@ export class PrimitiveMesh {
 	 * @param width 宽
 	 */
 	static createQuad(long: number = 1, width: number = 1): Mesh {
-		const vertexCount: number = 4;
-		const indexCount: number = 6;
 		//定义顶点数据结构
 		var vertexDeclaration: VertexDeclaration = VertexMesh.getVertexDeclaration("POSITION,NORMAL,UV");
-		//单个顶点数据个数,总共字节数/单个字节数
-		var vertexFloatStride: number = vertexDeclaration.vertexStride / 4;
-
 		var halfLong: number = long / 2;
 		var halfWidth: number = width / 2;
 
-		var vertices: Float32Array = new Float32Array([halfLong, halfWidth, 0, 0, 0, 1, 0, 0, halfLong, halfWidth, 0, 0, 0, 1, 1, 0, -halfLong, -halfWidth, 0, 0, 0, 1, 0, 1, halfLong, -halfWidth, 0, 0, 0, 1, 1, 1]);
-
+		var vertices: Float32Array = new Float32Array([-halfLong, halfWidth, 0, 0, 0, 1, 0, 0, halfLong, halfWidth, 0, 0, 0, 1, 1, 0, -halfLong, -halfWidth, 0, 0, 0, 1, 0, 1, halfLong, -halfWidth, 0, 0, 0, 1, 1, 1]);
 		var indices: Uint16Array = new Uint16Array([0, 1, 2, 3, 2, 1]);
 
 		return PrimitiveMesh._createMesh(vertexDeclaration, vertices, indices);

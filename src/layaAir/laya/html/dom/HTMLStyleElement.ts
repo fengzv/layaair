@@ -2,6 +2,7 @@ import { HTMLElement } from "./HTMLElement";
 import { Graphics } from "../../display/Graphics"
 import { HTMLStyle } from "../utils/HTMLStyle"
 import { ILaya } from "../../../ILaya";
+import { ClassUtils } from "../../utils/ClassUtils";
 
 /**
  * @private
@@ -45,3 +46,6 @@ export class HTMLStyleElement extends HTMLElement {
 }
 
 ILaya.regClass(HTMLStyleElement);
+
+ClassUtils.regClass("laya.html.dom.HTMLStyleElement", HTMLStyleElement);
+ClassUtils.regClass("Laya.HTMLStyleElement", HTMLStyleElement);

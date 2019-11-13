@@ -1,12 +1,12 @@
-import { BaseMaterial } from "laya/d3/core/material/BaseMaterial";
+import { Material } from "laya/d3/core/material/Material";
 import { RenderState } from "laya/d3/core/material/RenderState";
 import { VertexMesh } from "laya/d3/graphics/Vertex/VertexMesh";
 import { Vector4 } from "laya/d3/math/Vector4";
 import { Shader3D } from "laya/d3/shader/Shader3D";
+import { ShaderDefine } from "laya/d3/shader/ShaderDefine";
 import { ShaderPass } from "laya/d3/shader/ShaderPass";
 import { SubShader } from "laya/d3/shader/SubShader";
 import { BaseTexture } from "laya/resource/BaseTexture";
-import { ShaderDefine } from "laya/d3/shader/ShaderDefine";
 import OutlineFS from "../customShader/outline.fs";
 import OutlineVS from "../customShader/outline.vs";
 import Outline02FS from "../customShader/outline02.fs";
@@ -17,7 +17,7 @@ import Outline02VS from "../customShader/outline02.vs";
  * ...
  * @author ...
  */
-export class MultiplePassOutlineMaterial extends BaseMaterial {
+export class MultiplePassOutlineMaterial extends Material {
 	static ALBEDOTEXTURE: number = Shader3D.propertyNameToID("u_AlbedoTexture");
 	static OUTLINECOLOR: number = Shader3D.propertyNameToID("u_OutlineColor");
 	static OUTLINEWIDTH: number = Shader3D.propertyNameToID("u_OutlineWidth");
@@ -31,23 +31,17 @@ export class MultiplePassOutlineMaterial extends BaseMaterial {
 	static __init__(): void {
 	}
 	/**
-	 * 获取漫反射贴图。
-	 * @return 漫反射贴图。
+	 * 漫反射贴图。
 	 */
 	get albedoTexture(): BaseTexture {
 		return this._shaderValues.getTexture(MultiplePassOutlineMaterial.ALBEDOTEXTURE);
 	}
 
-	/**
-	 * 设置漫反射贴图。
-	 * @param value 漫反射贴图。
-	 */
 	set albedoTexture(value: BaseTexture) {
 		this._shaderValues.setTexture(MultiplePassOutlineMaterial.ALBEDOTEXTURE, value);
 	}
 	/**
-	 * 获取线条颜色
-	 * @return 线条颜色
+	 * 线条颜色
 	 */
 	get outlineColor(): Vector4 {
 		return this._shaderValues.getVector(MultiplePassOutlineMaterial.OUTLINECOLOR);
@@ -57,34 +51,24 @@ export class MultiplePassOutlineMaterial extends BaseMaterial {
 		this._shaderValues.setVector(MultiplePassOutlineMaterial.OUTLINECOLOR, value);
 	}
 	/**
-	 * 获取轮廓宽度。
-	 * @return 轮廓宽度,范围为0到0.05。
+	 * 获取轮廓宽度,范围为0到0.05。
 	 */
 	get outlineWidth(): number {
 		return this._shaderValues.getNumber(MultiplePassOutlineMaterial.OUTLINEWIDTH);
 	}
 
-	/**
-	 * 设置轮廓宽度。
-	 * @param value 轮廓宽度,范围为0到0.05。
-	 */
 	set outlineWidth(value: number) {
 		value = Math.max(0.0, Math.min(0.05, value));
 		this._shaderValues.setNumber(MultiplePassOutlineMaterial.OUTLINEWIDTH, value);
 	}
 
 	/**
-	 * 获取轮廓亮度。
-	 * @return 轮廓亮度,范围为0到1。
+	 * 轮廓亮度,范围为0到1。
 	 */
 	get outlineLightness(): number {
 		return this._shaderValues.getNumber(MultiplePassOutlineMaterial.OUTLINELIGHTNESS);
 	}
 
-	/**
-	 * 设置轮廓亮度。
-	 * @param value 轮廓亮度,范围为0到1。
-	 */
 	set outlineLightness(value: number) {
 		value = Math.max(0.0, Math.min(1.0, value));
 		this._shaderValues.setNumber(MultiplePassOutlineMaterial.OUTLINELIGHTNESS, value);

@@ -22,6 +22,7 @@ import { CustomMaterial } from "./customMaterials/CustomMaterial";
 import GlowingEdgeShaderFS from "./customShader/glowingEdgeShader.fs";
 import GlowingEdgeShaderVS from "./customShader/glowingEdgeShader.vs";
 import { GlowingEdgeMaterial } from "./customMaterials/GlowingEdgeMaterial";
+import { Material } from "laya/d3/core/material/Material";
 
 
 
@@ -33,8 +34,6 @@ export class Shader_GlowingEdge {
 	private rotation: Vector3 = new Vector3(0, 0.01, 0);
 
 	constructor() {
-		//开启Shader调试模式
-		Shader3D.debugMode = true;
 		//初始化引擎
 		Laya3D.init(0, 0);
 		Laya.stage.scaleMode = Stage.SCALE_FULL;
@@ -88,13 +87,13 @@ export class Shader_GlowingEdge {
 			}))
 			glowingEdgeMaterial4.marginalColor = new Vector3(1, 0.7, 0);
 
-			var baseMaterials: BaseMaterial[] = [];
+			var baseMaterials: Material[] = [];
 			baseMaterials[0] = glowingEdgeMaterial1;
 			baseMaterials[1] = glowingEdgeMaterial2;
 			baseMaterials[2] = glowingEdgeMaterial3;
 			baseMaterials[3] = glowingEdgeMaterial4;
 
-			((<SkinnedMeshSprite3D>dude.getChildAt(0).getChildAt(0))).skinnedMeshRenderer.sharedMaterials = baseMaterials;
+			(<SkinnedMeshSprite3D>dude.getChildAt(0).getChildAt(0)).skinnedMeshRenderer.sharedMaterials = baseMaterials;
 			dude.transform.position = new Vector3(0, 0.5, 0);
 			dude.transform.scale = new Vector3(0.2, 0.2, 0.2);
 			dude.transform.rotate(new Vector3(0, 180, 0), false, false);
@@ -117,8 +116,23 @@ export class Shader_GlowingEdge {
 
 	//初始化shader
 	private initShader(): void {
-		var attributeMap: any = { 'a_Position': VertexMesh.MESH_POSITION0, 'a_Normal': VertexMesh.MESH_NORMAL0, 'a_Texcoord': VertexMesh.MESH_TEXTURECOORDINATE0, 'a_BoneWeights': VertexMesh.MESH_BLENDWEIGHT0, 'a_BoneIndices': VertexMesh.MESH_BLENDINDICES0 };
-		var uniformMap: any = { 'u_Bones': Shader3D.PERIOD_CUSTOM, 'u_CameraPos': Shader3D.PERIOD_CAMERA, 'u_MvpMatrix': Shader3D.PERIOD_SPRITE, 'u_WorldMat': Shader3D.PERIOD_SPRITE, 'u_texture': Shader3D.PERIOD_MATERIAL, 'u_marginalColor': Shader3D.PERIOD_MATERIAL, 'u_DirectionLight.Direction': Shader3D.PERIOD_SCENE, 'u_DirectionLight.Color': Shader3D.PERIOD_SCENE };
+
+		var attributeMap: any = { 
+			'a_Position': VertexMesh.MESH_POSITION0, 
+			'a_Normal': VertexMesh.MESH_NORMAL0, 
+			'a_Texcoord': VertexMesh.MESH_TEXTURECOORDINATE0, 
+			'a_BoneWeights': VertexMesh.MESH_BLENDWEIGHT0, 
+			'a_BoneIndices': VertexMesh.MESH_BLENDINDICES0 
+		};
+		var uniformMap: any = { 
+			'u_Bones': Shader3D.PERIOD_CUSTOM, 
+			'u_CameraPos': Shader3D.PERIOD_CAMERA, 
+			'u_MvpMatrix': Shader3D.PERIOD_SPRITE, 
+			'u_WorldMat': Shader3D.PERIOD_SPRITE, 
+			'u_texture': Shader3D.PERIOD_MATERIAL, 
+			'u_marginalColor': Shader3D.PERIOD_MATERIAL, 
+			'u_SunLight.color': Shader3D.PERIOD_SCENE,
+		};
 		//创建自定义shader
 		var glowingEdgeShader: Shader3D = Shader3D.add("GlowingEdgeMaterial");
 		//为当前自定义的shader添加SubShader

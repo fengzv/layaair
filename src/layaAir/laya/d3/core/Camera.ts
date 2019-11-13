@@ -6,6 +6,7 @@ import { LayaGL } from "../../layagl/LayaGL";
 import { Render } from "../../renders/Render";
 import { BaseTexture } from "../../resource/BaseTexture";
 import { RenderTextureDepthFormat, RenderTextureFormat } from "../../resource/RenderTextureFormat";
+import { WebGLContext } from "../../webgl/WebGLContext";
 import { PostProcess } from "../component/PostProcess";
 import { FrustumCulling } from "../graphics/FrustumCulling";
 import { Cluster } from "../graphics/renderPath/Cluster";
@@ -31,6 +32,20 @@ import { RenderQueue } from "./render/RenderQueue";
 import { Scene3D } from "./scene/Scene3D";
 import { Scene3DShaderDeclaration } from "./scene/Scene3DShaderDeclaration";
 import { Transform3D } from "./Transform3D";
+
+/**
+ * 相机清除标记。
+ */
+enum CameraClearFlags {
+	/**固定颜色。*/
+	SolidColor = 0,
+	/**天空。*/
+	Sky = 1,
+	/**仅深度。*/
+	DepthOnly = 2,
+	/**不清除。*/
+	Nothing = 3
+}
 
 /**
  * <code>Camera</code> 类用于创建摄像机。
@@ -71,10 +86,10 @@ export class Camera extends BaseCamera {
 	private _projectionParams: Vector4 = new Vector4();
 
 
-	/** @internal 渲染目标。*/
+	/** @internal */
 	_offScreenRenderTexture: RenderTexture = null;
-	/**@internal */
-	_renderTexture: RenderTexture = null;
+	/** @internal */
+	_internalRenderTexture: RenderTexture = null;
 	/** @internal */
 	_postProcessCommandBuffers: CommandBuffer[] = [];
 	/** @internal */
@@ -83,12 +98,16 @@ export class Camera extends BaseCamera {
 	_clusterYPlanes: Vector3[];
 	/** @internal */
 	_clusterPlaneCacheFlag: Vector2 = new Vector2(-1, -1);
+	/** @internal */
+	_screenOffsetScale: Vector4 = new Vector4();
 
 	/**是否允许渲染。*/
 	enableRender: boolean = true;
+	/**清除标记。*/
+	clearFlag: CameraClearFlags = CameraClearFlags.SolidColor;
 
 	/**
-	 * 获取横纵比。
+	 * 横纵比。
 	 */
 	get aspectRatio(): number {
 		if (this._aspectRatio === 0) {
@@ -135,7 +154,7 @@ export class Camera extends BaseCamera {
 	}
 
 	/**
-	 * 获取裁剪空间的视口。
+	 * 裁剪空间的视口。
 	 */
 	get normalizedViewport(): Viewport {
 		return this._normalizedViewport;
@@ -185,7 +204,7 @@ export class Camera extends BaseCamera {
 	}
 
 	/**
-	 * 获取投影矩阵。
+	 * 投影矩阵。
 	 */
 	get projectionMatrix(): Matrix4x4 {
 		return this._projectionMatrix;
@@ -235,21 +254,24 @@ export class Camera extends BaseCamera {
 	}
 
 	/**
-	 * 获取自定义渲染场景的渲染目标。
+	 * 自定义渲染场景的渲染目标。
 	 */
 	get renderTarget(): RenderTexture {
 		return this._offScreenRenderTexture;
 	}
 
 	set renderTarget(value: RenderTexture) {
-		if (this._offScreenRenderTexture !== value) {
+		var lastValue: RenderTexture = this._offScreenRenderTexture;
+		if (lastValue !== value) {
+			(lastValue) && (lastValue._isCameraTarget = false);
+			(value) && (value._isCameraTarget = true);
 			this._offScreenRenderTexture = value;
 			this._calculateProjectionMatrix();
 		}
 	}
 
 	/**
-	 * 获取后期处理。
+	 * 后期处理。
 	 */
 	get postProcess(): PostProcess {
 		return this._postProcess;
@@ -263,22 +285,19 @@ export class Camera extends BaseCamera {
 	}
 
 	/**
-	 * 获取是否开启HDR。
+	 * 是否开启HDR。
+	 * 开启后对性能有一定影响。
 	 */
 	get enableHDR(): boolean {
 		return this._enableHDR;
 	}
 
 	set enableHDR(value: boolean) {
-		if (value) {
-			if (SystemUtils.supportRenderTextureFormat(RenderTextureFormat.R16G16B16A16))
-				this._enableHDR = true;
-			else
-				console.warn("Camera:can't enable HDR in this device.");
+		if (value && !SystemUtils.supportRenderTextureFormat(RenderTextureFormat.R16G16B16A16)) {
+			console.warn("Camera:can't enable HDR in this device.");
+			return;
 		}
-		else {
-			this._enableHDR = false;
-		}
+		this._enableHDR = value;
 	}
 
 	/**
@@ -337,8 +356,8 @@ export class Camera extends BaseCamera {
 	protected _calculateProjectionMatrix(): void {
 		if (!this._useUserProjectionMatrix) {
 			if (this._orthographic) {
-				var halfWidth: number = this.orthographicVerticalSize * this.aspectRatio * 0.5;
 				var halfHeight: number = this.orthographicVerticalSize * 0.5;
+				var halfWidth: number = halfHeight * this.aspectRatio;
 				Matrix4x4.createOrthoOffCenter(-halfWidth, halfWidth, -halfHeight, halfHeight, this.nearPlane, this.farPlane, this._projectionMatrix);
 			} else {
 				Matrix4x4.createPerspective(3.1416 * this.fieldOfView / 180.0, this.aspectRatio, this.nearPlane, this.farPlane, this._projectionMatrix);
@@ -370,12 +389,24 @@ export class Camera extends BaseCamera {
 	 */
 	_parse(data: any, spriteMap: any): void {
 		super._parse(data, spriteMap);
+		var clearFlagData: any = data.clearFlag;
+		(clearFlagData !== undefined) && (this.clearFlag = clearFlagData);
 		var viewport: any[] = data.viewport;
 		this.normalizedViewport = new Viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
 		var enableHDR: boolean = data.enableHDR;
 		(enableHDR !== undefined) && (this.enableHDR = enableHDR);
 	}
 
+
+	/**
+	 * @internal
+	 */
+	_getCanvasWidth(): number {
+		if (this._offScreenRenderTexture)
+			return this._offScreenRenderTexture.width;
+		else
+			return RenderContext3D.clientWidth;
+	}
 
 	/**
 	 * @internal
@@ -387,8 +418,18 @@ export class Camera extends BaseCamera {
 			return RenderContext3D.clientHeight;
 	}
 
-	_getInternalRenderTexture(): RenderTexture {
-		return this._renderTexture || this._offScreenRenderTexture;
+	/**
+	 * @internal
+	 */
+	_getRenderTexture(): RenderTexture {
+		return this._internalRenderTexture || this._offScreenRenderTexture;
+	}
+
+	/**
+	 * @internal
+	 */
+	_needInternalRenderTexture(): boolean {
+		return this._postProcess || this._enableHDR ? true : false;//condition of internal RT
 	}
 
 	/**
@@ -417,7 +458,7 @@ export class Camera extends BaseCamera {
 		super._prepareCameraToRender();
 		var vp: Viewport = this.viewport;
 		this._viewportParams.setValue(vp.x, vp.y, vp.width, vp.height);
-		this._projectionParams.setValue(this._nearPlane, this._farPlane, this._getInternalRenderTexture() ? -1 : 1, 0);
+		this._projectionParams.setValue(this._nearPlane, this._farPlane, this._getRenderTexture() ? -1 : 1, 0);
 		this._shaderValues.setVector(BaseCamera.VIEWPORT, this._viewportParams);
 		this._shaderValues.setVector(BaseCamera.PROJECTION_PARAMS, this._projectionParams);
 	}
@@ -425,10 +466,10 @@ export class Camera extends BaseCamera {
 	/**
 	 * @internal
 	 */
-	_applyViewProject(context: RenderContext3D, viewMat: Matrix4x4, proMat: Matrix4x4, inverseY: Boolean): void {
+	_applyViewProject(context: RenderContext3D, viewMat: Matrix4x4, proMat: Matrix4x4): void {
 		var projectView: Matrix4x4;
 		var shaderData: ShaderData = this._shaderValues;
-		if (inverseY) {
+		if (context.invertY) {
 			Matrix4x4.multiply(BaseCamera._invertYScaleMatrix, proMat, BaseCamera._invertYProjectionMatrix);
 			Matrix4x4.multiply(BaseCamera._invertYProjectionMatrix, viewMat, BaseCamera._invertYProjectionViewMatrix);
 			proMat = BaseCamera._invertYProjectionMatrix;
@@ -494,20 +535,24 @@ export class Camera extends BaseCamera {
 	}
 
 	/**
+	 * @override
 	 * @param shader 着色器
 	 * @param replacementTag 替换标记。
 	 */
 	render(shader: Shader3D = null, replacementTag: string = null): void {
-		if (!this._scene) //自定义相机渲染需要加保护判断是否在场景中,否则报错
+		if (!this.activeInHierarchy) //custom render should protected with activeInHierarchy=true
 			return;
 
-		var createRenderTexture: boolean = this._postProcess || this._enableHDR ? true : false;
-		if (createRenderTexture) //需要强制配置渲染纹理的条件
-			this._renderTexture = RenderTexture.createFromPool(RenderContext3D.clientWidth, RenderContext3D.clientHeight, this._getRenderTextureFormat(), RenderTextureDepthFormat.DEPTH_16, BaseTexture.FILTERMODE_BILINEAR);
-
+		var viewport: Viewport = this.viewport;
+		var needInternalRT: boolean = this._needInternalRenderTexture();
 		var gl: WebGLRenderingContext = LayaGL.instance;
 		var context: RenderContext3D = RenderContext3D._instance;
-		var scene: Scene3D = context.scene = (<Scene3D>this._scene);
+		var scene: Scene3D = context.scene = <Scene3D>this._scene;
+
+		if (needInternalRT)
+			this._internalRenderTexture = RenderTexture.createFromPool(viewport.width, viewport.height, this._getRenderTextureFormat(), RenderTextureDepthFormat.DEPTH_16, BaseTexture.FILTERMODE_BILINEAR);
+		else
+			this._internalRenderTexture = null;
 		if (scene.parallelSplitShadowMaps[0]) {//TODO:SM
 			ShaderData.setRuntimeValueMode(false);
 			var parallelSplitShadowMap: ParallelSplitShadowMap = scene.parallelSplitShadowMaps[0];
@@ -516,17 +561,19 @@ export class Camera extends BaseCamera {
 			for (var i: number = 0, n: number = parallelSplitShadowMap.shadowMapCount; i < n; i++) {
 				var smCamera: Camera = parallelSplitShadowMap.cameras[i];
 				context.camera = smCamera;
-				FrustumCulling.renderObjectCulling(smCamera, scene, context, scene._castShadowRenders, shader, replacementTag);
+				FrustumCulling.renderObjectCulling(smCamera, scene, context, shader, replacementTag, true);
 
 				var shadowMap: RenderTexture = parallelSplitShadowMap.cameras[i + 1].renderTarget;
 				shadowMap._start();
+				RenderContext3D._instance.invertY = false;//阴影不需要翻转,临时矫正，待重构处理
 				context.camera = smCamera;
+				Camera._updateMark++;
 				context.viewport = smCamera.viewport;
 				smCamera._prepareCameraToRender();
-				smCamera._applyViewProject(context, smCamera.viewMatrix, smCamera.projectionMatrix, false);
+				smCamera._applyViewProject(context, smCamera.viewMatrix, smCamera.projectionMatrix);
 				scene._clear(gl, context);
 				var queue: RenderQueue = scene._opaqueQueue;//阴影均为非透明队列
-				queue._render(context, false);//TODO:临时改为False
+				queue._render(context);
 				shadowMap._end();
 			}
 			scene._shaderValues.removeDefine(Scene3DShaderDeclaration.SHADERDEFINE_CAST_SHADOW);//去掉宏定义
@@ -534,39 +581,61 @@ export class Camera extends BaseCamera {
 		}
 
 		context.camera = this;
-
+		Camera._updateMark++;
 		scene._preRenderScript();//TODO:duo相机是否重复
-		var renderTar: RenderTexture = this._getInternalRenderTexture();//如果有临时renderTexture则画到临时renderTexture,最后再画到屏幕或者离屏画布,如果无临时renderTexture则直接画到屏幕或离屏画布
-		(renderTar) && (renderTar._start());
-		context.viewport = this.viewport;
+		//TODO:webgl2 should use blitFramebuffer
+		//TODO:if adjacent camera param can use same internal RT can merge
+		//if need internal RT and no off screen RT and clearFlag is DepthOnly or Nothing, should grab the backBuffer
+		if (needInternalRT && !this._offScreenRenderTexture && (this.clearFlag == CameraClearFlags.DepthOnly || this.clearFlag == CameraClearFlags.Nothing)) {
+			if (this._enableHDR) {//internal RT is HDR can't directly copy
+				var grabTexture: RenderTexture = RenderTexture.createFromPool(viewport.width, viewport.height, RenderTextureFormat.R8G8B8, RenderTextureDepthFormat.DEPTH_16, BaseTexture.FILTERMODE_BILINEAR);
+				WebGLContext.bindTexture(gl, gl.TEXTURE_2D, grabTexture._getSource());
+				gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, viewport.x, RenderContext3D.clientHeight - (viewport.y + viewport.height), viewport.width, viewport.height);
+				var blit: BlitScreenQuadCMD = BlitScreenQuadCMD.create(grabTexture, this._internalRenderTexture);
+				blit.run();
+				blit.recover();
+				RenderTexture.recoverToPool(grabTexture);
+			}
+			else {
+				WebGLContext.bindTexture(gl, gl.TEXTURE_2D, this._internalRenderTexture._getSource());
+				gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, viewport.x, RenderContext3D.clientHeight - (viewport.y + viewport.height), viewport.width, viewport.height);
+			}
+		}
+		var renderTex: RenderTexture = this._getRenderTexture();//如果有临时renderTexture则画到临时renderTexture,最后再画到屏幕或者离屏画布,如果无临时renderTexture则直接画到屏幕或离屏画布
+		(renderTex) && (renderTex._start());
+		context.viewport = viewport;
 		this._prepareCameraToRender();
 		var multiLighting: boolean = Config3D._config._multiLighting;
 		(multiLighting) && (Cluster.instance.update(this, <Scene3D>(this._scene)));
-		this._applyViewProject(context, this.viewMatrix, this._projectionMatrix, renderTar ? true : false);
+
+		this._applyViewProject(context, this.viewMatrix, this._projectionMatrix);
+
 		scene._preCulling(context, this, shader, replacementTag);
 		scene._clear(gl, context);
 		scene._renderScene(context);
 		scene._postRenderScript();//TODO:duo相机是否重复
-		(renderTar) && (renderTar._end());
+		(renderTex) && (renderTex._end());
 
-		if (createRenderTexture) {
+		if (needInternalRT) {
 			if (this._postProcess) {
 				this._postProcess._render();
 				this._applyPostProcessCommandBuffers();
 			} else if (this._enableHDR) {
-				var blit: BlitScreenQuadCMD = BlitScreenQuadCMD.create(this._renderTexture, this._offScreenRenderTexture ? this._offScreenRenderTexture : null);
+				var canvasWidth: number = this._getCanvasWidth(), canvasHeight: number = this._getCanvasHeight();
+				this._screenOffsetScale.setValue(viewport.x / canvasWidth, viewport.y / canvasHeight, viewport.width / canvasWidth, viewport.height / canvasHeight);
+				var blit: BlitScreenQuadCMD = BlitScreenQuadCMD.create(this._internalRenderTexture, this._offScreenRenderTexture ? this._offScreenRenderTexture : null, this._screenOffsetScale);
 				blit.run();
 				blit.recover();
 			}
-			RenderTexture.recoverToPool(this._renderTexture);
+			RenderTexture.recoverToPool(this._internalRenderTexture);
 		}
 	}
 
 
 	/**
 	 * 计算从屏幕空间生成的射线。
-	 * @param	point 屏幕空间的位置位置。
-	 * @return  out  输出射线。
+	 * @param point 屏幕空间的位置位置。
+	 * @param out  输出射线。
 	 */
 	viewportPointToRay(point: Vector2, out: Ray): void {
 		Picker.calculateCursorRay(point, this.viewport, this._projectionMatrix, this.viewMatrix, null, out);
@@ -574,8 +643,8 @@ export class Camera extends BaseCamera {
 
 	/**
 	 * 计算从裁切空间生成的射线。
-	 * @param	point 裁切空间的位置。。
-	 * @return  out  输出射线。
+	 * @param point 裁切空间的位置。
+	 * @param out  输出射线。
 	 */
 	normalizedViewportPointToRay(point: Vector2, out: Ray): void {
 		var finalPoint: Vector2 = Camera._tempVector20;
@@ -587,37 +656,27 @@ export class Camera extends BaseCamera {
 	}
 
 	/**
-	 * 计算从世界空间准换三维坐标到屏幕空间。
-	 * @param	position 世界空间的位置。
-	 * @return  out  输出位置。
+	 * 将一个点从世界空间转换到视口空间。
+	 * @param position 世界空间的坐标。
+	 * @param out  x、y、z为视口空间坐标,w为相对于摄像机的z轴坐标。
 	 */
-	worldToViewportPoint(position: Vector3, out: Vector3): void {
+	worldToViewportPoint(position: Vector3, out: Vector4): void {
 		Matrix4x4.multiply(this._projectionMatrix, this._viewMatrix, this._projectionViewMatrix);
 		this.viewport.project(position, this._projectionViewMatrix, out);
-		//if (out.z < 0.0 || out.z > 1.0)// TODO:是否需要近似判断
-		//{
-		//outE[0] = outE[1] = outE[2] = NaN;
-		//} else {
 		out.x = out.x / Laya.stage.clientScaleX;
 		out.y = out.y / Laya.stage.clientScaleY;
-		//}
 	}
 
 	/**
-	 * 计算从世界空间准换三维坐标到裁切空间。
-	 * @param	position 世界空间的位置。
-	 * @return  out  输出位置。
+	 * 将一个点从世界空间转换到归一化视口空间。
+	 * @param position 世界空间的坐标。
+	 * @param out  x、y、z为归一化视口空间坐标,w为相对于摄像机的z轴坐标。
 	 */
-	worldToNormalizedViewportPoint(position: Vector3, out: Vector3): void {
+	worldToNormalizedViewportPoint(position: Vector3, out: Vector4): void {
 		Matrix4x4.multiply(this._projectionMatrix, this._viewMatrix, this._projectionViewMatrix);
 		this.normalizedViewport.project(position, this._projectionViewMatrix, out);
-		//if (out.z < 0.0 || out.z > 1.0)// TODO:是否需要近似判断
-		//{
-		//outE[0] = outE[1] = outE[2] = NaN;
-		//} else {
 		out.x = out.x / Laya.stage.clientScaleX;
 		out.y = out.y / Laya.stage.clientScaleY;
-		//}
 	}
 
 	/**
@@ -632,8 +691,8 @@ export class Camera extends BaseCamera {
 			var clientHeight: number = RenderContext3D.clientHeight;
 			var ratioX: number = this.orthographicVerticalSize * this.aspectRatio / clientWidth;
 			var ratioY: number = this.orthographicVerticalSize / clientHeight;
-			out.x = (-clientWidth / 2 + source.x) * ratioX;
-			out.y = (clientHeight / 2 - source.y) * ratioY;
+			out.x = (-clientWidth / 2 + source.x * Laya.stage.clientScaleX) * ratioX;
+			out.y = (clientHeight / 2 - source.y * Laya.stage.clientScaleY) * ratioY;
 			out.z = (this.nearPlane - this.farPlane) * (source.z + 1) / 2 - this.nearPlane;
 			Vector3.transformCoordinate(out, this.transform.worldMatrix, out);
 			return true;

@@ -266,7 +266,9 @@ export class Tree extends Box implements IRender {
         this._source = null;
         this._renderHandler = null;
     }
-
+    /**
+     * @override
+     */
     protected createChildren(): void {
         this.addChild(this._list = new List());
         this._list.renderHandler = Handler.create(this, this.renderItem, null, false);
@@ -458,7 +460,8 @@ export class Tree extends Box implements IRender {
      */
     protected getArray(): any[] {
         var arr: any[] = [];
-        for (let item of this._source) {//TODO TS
+        for (let key in this._source) {//TODO TS
+            let item = this._source[key];
             if (this.getParentOpenStatus(item)) {
                 item.x = this._spaceLeft * this.getDepth(item);
                 arr.push(item);
@@ -593,7 +596,8 @@ export class Tree extends Box implements IRender {
         if (!isRoot) {
             obj = {};
             var list2: any = (xml as any).attributes;
-            for (let attrs of list2) {
+            for (let key in list2) {
+                var attrs = list2[key];
                 var prop: string = attrs.nodeName;
                 var value: string = attrs.nodeValue;
                 obj[prop] = value == "true" ? true : value == "false" ? false : value;

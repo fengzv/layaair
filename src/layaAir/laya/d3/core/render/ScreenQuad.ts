@@ -1,12 +1,11 @@
-import { BufferState } from "../BufferState"
+import { LayaGL } from "../../../layagl/LayaGL"
+import { Resource } from "../../../resource/Resource"
+import { Stat } from "../../../utils/Stat"
 import { VertexBuffer3D } from "../../graphics/VertexBuffer3D"
 import { VertexDeclaration } from "../../graphics/VertexDeclaration"
 import { VertexElement } from "../../graphics/VertexElement"
 import { VertexElementFormat } from "../../graphics/VertexElementFormat"
-import { Resource } from "../../../resource/Resource";
-import { WebGLContext } from "../../../webgl/WebGLContext";
-import { LayaGL } from "../../../layagl/LayaGL";
-import { Stat } from "../../../utils/Stat";
+import { BufferState } from "../BufferState"
 
 /**
  * <code>ScreenQuad</code> 类用于创建全屏四边形。
@@ -17,9 +16,9 @@ export class ScreenQuad extends Resource {
 	/** @internal */
 	private static _vertexDeclaration: VertexDeclaration;
 	/** @internal */
-	private static _vertices: Float32Array = new Float32Array([1, 1, 1, 0, 1, -1, 1, 1, -1, 1, 0, 0, -1, -1, 0, 1]);
+	private static _vertices: Float32Array = new Float32Array([1, 1, 1, 1, 1, -1, 1, 0, -1, 1, 0, 1, -1, -1, 0, 0]);//the rule of OpenGL
 	/** @internal */
-	private static _verticesInvertUV: Float32Array = new Float32Array([1, 1, 1, 1, 1, -1, 1, 0, -1, 1, 0, 1, -1, -1, 0, 0]);
+	private static _verticesInvertUV: Float32Array = new Float32Array([1, 1, 1, 0, 1, -1, 1, 1, -1, 1, 0, 0, -1, -1, 0, 1]);
 
 	/**@internal */
 	static instance: ScreenQuad;

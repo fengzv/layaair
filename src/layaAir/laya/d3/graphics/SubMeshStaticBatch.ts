@@ -1,32 +1,32 @@
-import { VertexDeclaration } from "./VertexDeclaration";
-import { VertexBuffer3D } from "./VertexBuffer3D";
-import { IndexBuffer3D } from "./IndexBuffer3D";
-import { VertexElement } from "./VertexElement";
-import { BufferState } from "../core/BufferState"
-import { GeometryElement } from "../core/GeometryElement"
-import { MeshRenderer } from "../core/MeshRenderer"
-import { MeshSprite3D } from "../core/MeshSprite3D"
-import { RenderableSprite3D } from "../core/RenderableSprite3D"
-import { Sprite3D } from "../core/Sprite3D"
-import { Transform3D } from "../core/Transform3D"
-import { BaseRender } from "../core/render/BaseRender"
-import { RenderContext3D } from "../core/render/RenderContext3D"
-import { RenderElement } from "../core/render/RenderElement"
-import { SubMeshRenderElement } from "../core/render/SubMeshRenderElement"
-import { VertexMesh } from "./Vertex/VertexMesh"
-import { Matrix4x4 } from "../math/Matrix4x4"
-import { Quaternion } from "../math/Quaternion"
-import { Vector3 } from "../math/Vector3"
-import { Vector4 } from "../math/Vector4"
-import { Mesh } from "../resource/models/Mesh"
-import { SubMesh } from "../resource/models/SubMesh"
-import { Utils3D } from "../utils/Utils3D"
-import { LayaGL } from "../../layagl/LayaGL"
-import { IDispose } from "../../resource/IDispose"
-import { Resource } from "../../resource/Resource"
-import { Stat } from "../../utils/Stat"
-import { WebGLContext } from "../../webgl/WebGLContext"
+import { LayaGL } from "../../layagl/LayaGL";
+import { IDispose } from "../../resource/IDispose";
+import { Resource } from "../../resource/Resource";
+import { Stat } from "../../utils/Stat";
 import { SingletonList } from "../component/SingletonList";
+import { BufferState } from "../core/BufferState";
+import { GeometryElement } from "../core/GeometryElement";
+import { MeshRenderer } from "../core/MeshRenderer";
+import { MeshSprite3D } from "../core/MeshSprite3D";
+import { BaseRender } from "../core/render/BaseRender";
+import { RenderContext3D } from "../core/render/RenderContext3D";
+import { RenderElement } from "../core/render/RenderElement";
+import { SubMeshRenderElement } from "../core/render/SubMeshRenderElement";
+import { RenderableSprite3D } from "../core/RenderableSprite3D";
+import { Sprite3D } from "../core/Sprite3D";
+import { Transform3D } from "../core/Transform3D";
+import { Matrix4x4 } from "../math/Matrix4x4";
+import { Quaternion } from "../math/Quaternion";
+import { Vector3 } from "../math/Vector3";
+import { Vector4 } from "../math/Vector4";
+import { Mesh } from "../resource/models/Mesh";
+import { SubMesh } from "../resource/models/SubMesh";
+import { Utils3D } from "../utils/Utils3D";
+import { IndexBuffer3D } from "./IndexBuffer3D";
+import { VertexMesh } from "./Vertex/VertexMesh";
+import { VertexBuffer3D } from "./VertexBuffer3D";
+import { VertexDeclaration } from "./VertexDeclaration";
+import { VertexElement } from "./VertexElement";
+import { IndexFormat } from "./IndexFormat";
 
 /**
  * @internal
@@ -43,6 +43,8 @@ export class SubMeshStaticBatch extends GeometryElement implements IDispose {
 	private static _tempMatrix4x40: Matrix4x4 = new Matrix4x4();
 	/** @internal */
 	private static _tempMatrix4x41: Matrix4x4 = new Matrix4x4();
+	/** @internal */
+	private static _tempMatrix4x42: Matrix4x4 = new Matrix4x4();
 
 	/** @internal */
 	static maxBatchVertexCount: number = 65535;
@@ -71,13 +73,11 @@ export class SubMeshStaticBatch extends GeometryElement implements IDispose {
 
 	/** @internal [只读]*/
 	batchOwner: Sprite3D;
-	/** @internal [只读]*/
-	number: number;
 
 	/**
 	 * 创建一个 <code>SubMeshStaticBatch</code> 实例。
 	 */
-	constructor(batchOwner: Sprite3D, number: number, vertexDeclaration: VertexDeclaration) {
+	constructor(batchOwner: Sprite3D, vertexDeclaration: VertexDeclaration) {
 		super();
 		this._batchID = SubMeshStaticBatch._batchIDCounter++;
 		this._batchElements = [];
@@ -85,8 +85,6 @@ export class SubMeshStaticBatch extends GeometryElement implements IDispose {
 		this._currentBatchIndexCount = 0;
 		this._vertexDeclaration = vertexDeclaration;
 		this.batchOwner = batchOwner;
-		this.number = number;
-
 	}
 
 	/**
@@ -119,6 +117,10 @@ export class SubMeshStaticBatch extends GeometryElement implements IDispose {
 		} else {
 			worldMat = transform.worldMatrix;
 		}
+		var normalMat: Matrix4x4 = SubMeshStaticBatch._tempMatrix4x42;
+		worldMat.invert(normalMat);
+		normalMat.transpose();
+
 		var rotation: Quaternion = SubMeshStaticBatch._tempQuaternion0;
 		worldMat.decomposeTransRotScale(SubMeshStaticBatch._tempVector30, rotation, SubMeshStaticBatch._tempVector31);//可不计算position和scale	
 		var lightmapScaleOffset: Vector4 = render.lightmapScaleOffset;
@@ -130,7 +132,7 @@ export class SubMeshStaticBatch extends GeometryElement implements IDispose {
 			var bakeOffset: number = (i + batchOffset) * bakeVertexFloatCount;
 			Utils3D.transformVector3ArrayToVector3ArrayCoordinate(oriVertexes, oriOffset + positionOffset, worldMat, batchVertices, bakeOffset + 0);
 			if (normalOffset !== -1)
-				Utils3D.transformVector3ArrayByQuat(oriVertexes, oriOffset + normalOffset, rotation, batchVertices, bakeOffset + 3);
+				Utils3D.transformVector3ArrayToVector3ArrayNormal(oriVertexes, oriOffset + normalOffset, normalMat, batchVertices, bakeOffset + 3);
 
 			var j: number, m: number;
 			var bakOff: number = bakeOffset + 6;
@@ -183,16 +185,13 @@ export class SubMeshStaticBatch extends GeometryElement implements IDispose {
 	 * @internal
 	 */
 	add(sprite: RenderableSprite3D): void {
-		var oldStaticBatch: SubMeshStaticBatch = (<SubMeshStaticBatch>sprite._render._staticBatch);
-		(oldStaticBatch) && (oldStaticBatch.remove(sprite));//重复合并需要从旧的staticBatch移除
-
 		var mesh: Mesh = (<Mesh>((<MeshSprite3D>sprite)).meshFilter.sharedMesh);
 		var subMeshVertexCount: number = mesh.vertexCount;
 		this._batchElements.push(sprite);
 
 		var render: BaseRender = sprite._render;
 		render._isPartOfStaticBatch = true;
-		render._staticBatch = this;
+		render._staticBatch = this;//TODO:mayebe shhould  delete
 		var renderElements: RenderElement[] = render._renderElements;
 		for (var i: number = 0, n: number = renderElements.length; i < n; i++)
 			renderElements[i].staticBatch = this;
@@ -206,19 +205,17 @@ export class SubMeshStaticBatch extends GeometryElement implements IDispose {
 	 * @internal
 	 */
 	remove(sprite: RenderableSprite3D): void {
-		var mesh: Mesh = (<Mesh>((<MeshSprite3D>sprite)).meshFilter.sharedMesh);
+		var mesh: Mesh = (<MeshSprite3D>sprite).meshFilter.sharedMesh;
 		var index: number = this._batchElements.indexOf(sprite);
 		if (index !== -1) {
 			this._batchElements.splice(index, 1);
 
-			var render: BaseRender = sprite._render;
 			var renderElements: RenderElement[] = sprite._render._renderElements;
 			for (var i: number = 0, n: number = renderElements.length; i < n; i++)
 				renderElements[i].staticBatch = null;
 
-			var meshVertexCount: number = mesh.vertexCount;
 			this._currentBatchIndexCount = this._currentBatchIndexCount - mesh._indexBuffer.indexCount;
-			this._currentBatchVertexCount = this._currentBatchVertexCount - meshVertexCount;
+			this._currentBatchVertexCount = this._currentBatchVertexCount - mesh.vertexCount;
 			sprite._render._isPartOfStaticBatch = false;
 		}
 	}
@@ -232,7 +229,7 @@ export class SubMeshStaticBatch extends GeometryElement implements IDispose {
 			this._indexBuffer.destroy();
 			Resource._addGPUMemory(-(this._vertexBuffer._byteLength + this._indexBuffer._byteLength));
 		}
-		var gl:WebGLRenderingContext=LayaGL.instance;
+		var gl: WebGLRenderingContext = LayaGL.instance;
 		var batchVertexCount: number = 0;
 		var batchIndexCount: number = 0;
 
@@ -242,7 +239,7 @@ export class SubMeshStaticBatch extends GeometryElement implements IDispose {
 		var indexDatas: Uint16Array = new Uint16Array(this._currentBatchIndexCount);
 		this._vertexBuffer = new VertexBuffer3D(this._vertexDeclaration.vertexStride * this._currentBatchVertexCount, gl.STATIC_DRAW);
 		this._vertexBuffer.vertexDeclaration = this._vertexDeclaration;
-		this._indexBuffer = new IndexBuffer3D(IndexBuffer3D.INDEXTYPE_USHORT, this._currentBatchIndexCount, gl.STATIC_DRAW);
+		this._indexBuffer = new IndexBuffer3D(IndexFormat.UInt16, this._currentBatchIndexCount, gl.STATIC_DRAW);
 
 		for (var i: number = 0, n: number = this._batchElements.length; i < n; i++) {
 			var sprite: MeshSprite3D = (<MeshSprite3D>this._batchElements[i]);
@@ -298,9 +295,9 @@ export class SubMeshStaticBatch extends GeometryElement implements IDispose {
 	 */
 	_render(state: RenderContext3D): void {
 		this._bufferState.bind();
-		var gl:WebGLRenderingContext=LayaGL.instance;
+		var gl: WebGLRenderingContext = LayaGL.instance;
 		var element: RenderElement = state.renderElement;
-		var staticBatchElementList:SingletonList<SubMeshRenderElement>=(<SubMeshRenderElement>element).staticBatchElementList;
+		var staticBatchElementList: SingletonList<SubMeshRenderElement> = (<SubMeshRenderElement>element).staticBatchElementList;
 		var batchElementList: Array<SubMeshRenderElement> = staticBatchElementList.elements;
 		/*合并drawcall版本:合并几率不大*/
 		var from: number = 0;

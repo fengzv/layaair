@@ -5,7 +5,7 @@ import { BaseCamera } from "../BaseCamera"
 import { Camera } from "../Camera"
 import { GeometryElement } from "../GeometryElement"
 import { Transform3D } from "../Transform3D"
-import { BaseMaterial } from "../material/BaseMaterial"
+import { Material } from "../material/Material"
 import { Scene3D } from "../scene/Scene3D"
 import { Shader3D } from "../../shader/Shader3D"
 import { ShaderData } from "../../shader/ShaderData"
@@ -36,7 +36,7 @@ export class RenderElement {
 	_geometry: GeometryElement;
 
 	/** @internal */
-	material: BaseMaterial;//可能为空
+	material: Material;//可能为空
 	/** @internal */
 	render: BaseRender;
 	/** @internal */
@@ -133,8 +133,9 @@ export class RenderElement {
 	/**
 	 * @internal
 	 */
-	_render(context: RenderContext3D, isTarget: boolean): void {
-		var lastStateMaterial: BaseMaterial, lastStateShaderInstance: ShaderInstance, lastStateRender: BaseRender;
+	_render(context: RenderContext3D): void {
+		var forceInvertFace: boolean = context.invertY;
+		var lastStateMaterial: Material, lastStateShaderInstance: ShaderInstance, lastStateRender: BaseRender;
 		var updateMark: number = Camera._updateMark;
 		var scene: Scene3D = context.scene;
 		var camera: BaseCamera = context.camera;
@@ -148,6 +149,14 @@ export class RenderElement {
 			this.render._renderUpdateWithCamera(context, transform);
 			this.render._updateMark = updateMark;
 			this.render._updateRenderType = this.renderType;
+		}
+		else {
+			//InstanceBatch should update worldMatrix every renderElement,
+			//because the instance matrix buffer is always different.
+			if (this.renderType == RenderElement.RENDERTYPE_INSTANCEBATCH) {
+				this.render._renderUpdate(context, transform);
+				this.render._renderUpdateWithCamera(context, transform);
+			}
 		}
 
 		if (geometry._prepareRender(context)) {
@@ -190,13 +199,13 @@ export class RenderElement {
 				var matValues: ShaderData = this.material._shaderValues;
 				if (lastStateMaterial !== this.material || lastStateShaderInstance !== shaderIns) {//lastStateMaterial,lastStateShaderInstance存到全局，多摄像机还可优化
 					shaderIns.uploadRenderStateBlendDepth(matValues);
-					shaderIns.uploadRenderStateFrontFace(matValues, isTarget, this.getInvertFront());
+					shaderIns.uploadRenderStateFrontFace(matValues, forceInvertFace, this.getInvertFront());
 					lastStateMaterial = this.material;
 					lastStateShaderInstance = shaderIns;
 					lastStateRender = this.render;
 				} else {
 					if (lastStateRender !== this.render) {//TODO:是否可以用transfrom
-						shaderIns.uploadRenderStateFrontFace(matValues, isTarget, this.getInvertFront());
+						shaderIns.uploadRenderStateFrontFace(matValues, forceInvertFace, this.getInvertFront());
 						lastStateRender = this.render;
 					}
 				}
@@ -207,7 +216,6 @@ export class RenderElement {
 		}
 		if (updateRender && this.renderType !== RenderElement.RENDERTYPE_NORMAL)
 			this.render._revertBatchRenderUpdate(context);//还原因合并导致的数据变化
-		Camera._updateMark++;
 	}
 
 	/**

@@ -1,17 +1,16 @@
-import { Laya } from "./../../../../../../core/src/Laya";
+import { Laya } from "Laya";
 import { Notice } from "./Notice";
-import { Sprite } from "../../../../../../core/src/laya/display/Sprite"
-	import { Stage } from "../../../../../../core/src/laya/display/Stage"
-	import { Render } from "../../../../../../core/src/laya/renders/Render"
-	import { Browser } from "../../../../../../core/src/laya/utils/Browser"
-	import { Matrix } from "../../../../../../core/src/laya/maths/Matrix"
-	import { Point } from "../../../../../../core/src/laya/maths/Point"
-	import { Rectangle } from "../../../../../../core/src/laya/maths/Rectangle"
-	import { DebugInfoLayer } from "../view/nodeInfo/DebugInfoLayer"
-	
-	import { DButton } from "./debugUI/DButton"
-	import { Event } from "../../../../../../core/src/laya/events/Event"
-	import { DebugTool } from "../DebugTool"
+import { DebugInfoLayer } from "../view/nodeInfo/DebugInfoLayer"
+import { DButton } from "./debugUI/DButton"
+import { Event } from "laya/events/Event";
+import { Render } from "laya/renders/Render";
+import { Stage } from "laya/display/Stage";
+import { Matrix } from "laya/maths/Matrix";
+import { Point } from "laya/maths/Point";
+import { Rectangle } from "laya/maths/Rectangle";
+import { Browser } from "laya/utils/Browser";
+import { Sprite } from "laya/display/Sprite";
+import { DebugTool } from "../DebugTool";
 
 	/**
 	 * 调试拾取显示对象类
@@ -24,10 +23,12 @@ import { Sprite } from "../../../../../../core/src/laya/display/Sprite"
 			this._stage = Laya.stage;
 			this.init(Render.context.canvas);
 		}
-		 static ITEM_CLICKED:string = "ItemClicked";
-		 static instance:DisplayHook ;
-		 mouseX:number;
-		 mouseY:number;
+		static ITEM_CLICKED:string = "ItemClicked";
+
+		static instance:DisplayHook;
+		private static selectNodeUnderMouse;
+		mouseX:number;
+		mouseY:number;
 		private _stage:Stage;
 		private _matrix:Matrix = new Matrix();
 		private _point:Point = new Point();
@@ -35,35 +36,40 @@ import { Sprite } from "../../../../../../core/src/laya/display/Sprite"
 		private _event:Event = Event.EMPTY;
 		private _target:any;
 		
-		 static initMe():void
+		static initMe():void
 		{
 			if(!DisplayHook.instance)
 			{
 				DisplayHook.instance=new DisplayHook();
+				DisplayHook.selectNodeUnderMouse = DebugTool.selectNodeUnderMouse;
+				DebugTool.selectNodeUnderMouse = ()=>{
+					DisplayHook.instance.selectDisUnderMouse();
+					DisplayHook.selectNodeUnderMouse();
+				}
 			}
 		}
 		
-		 init(canvas:any):void {
+		init(canvas:any):void {
 			//禁用IE下屏幕缩放
-			if (Browser.window.navigator.msPointerEnabled) {
+			if (window.navigator.msPointerEnabled) {
 				canvas.style['-ms-content-zooming'] = 'none';
 				canvas.style['-ms-touch-action'] = 'none';
 			}
 			
 			var _this:DisplayHook = this;
-			Browser.document.addEventListener('mousedown', function(e:any):void {
+			document.addEventListener('mousedown',(e)=> {
 //			canvas.addEventListener('mousedown', function(e:*):void {
-				this._event._stoped = false;
+				(this._event as any)._stoped = false;
 				DisplayHook.isFirst=true;
 //				trace("mousePos:",e.offsetX, e.offsetY);
 				_this.check(_this._stage, e.offsetX, e.offsetY, _this.onMouseDown, true, false);
 			}, true);
-			Browser.document.addEventListener('touchstart', function(e:any):void {
+			document.addEventListener('touchstart', (e) => {
 //			canvas.addEventListener('mousedown', function(e:*):void {
-				this._event._stoped = false;
+				(this._event as any)._stoped = false;
 				DisplayHook.isFirst=true;
 //				trace("mousePos:",e.offsetX, e.offsetY);
-               	var touches:any[] = e.changedTouches;
+               	var touches:TouchList = e.changedTouches;
 				for (var i:number = 0, n:number = touches.length; i < n; i++) {
 					var touch:any = touches[i];
 					initEvent(touch, e);
@@ -73,16 +79,16 @@ import { Sprite } from "../../../../../../core/src/laya/display/Sprite"
 			}, true);
 			
 			function initEvent(e:Event, event:any = null):void {
-				_this._event._stoped = false;
+				(_this._event as any)._stoped = false;
 				_this._event.nativeEvent = event || e;
 				_this._target = null;
 				
-				if (e.offsetX) {
-					_this.mouseX = e.offsetX;
-					_this.mouseY = e.offsetY;
+				if ((e as any).offsetX) {
+					_this.mouseX = (e as any).offsetX;
+					_this.mouseY = (e as any).offsetY;
 				} else {
-					_this.mouseX = e.clientX - Laya.stage.offset.x;
-					_this.mouseY = e.clientY - Laya.stage.offset.y;
+					_this.mouseX = (e as any).clientX - Laya.stage.offset.x;
+					_this.mouseY = (e as any).clientY - Laya.stage.offset.y;
 				}
 			}
 		}
@@ -91,7 +97,6 @@ import { Sprite } from "../../../../../../core/src/laya/display/Sprite"
 			this.sendEvent(ele, Event.MOUSE_MOVE);
 			//TODO:BUG
 			return;
-			
 			if (hit && ele != this._stage && ele !== this._target) {
 				if (this._target) {
 					if (this._target.$_MOUSEOVER) {
@@ -127,7 +132,7 @@ import { Sprite } from "../../../../../../core/src/laya/display/Sprite"
 		}
 		
 		private sendEvent(ele:any, type:string):void {
-			if (!this._event._stoped) {
+			if (!(this._event as any)._stoped) {
 				ele.event(type, this._event.setTo(type, ele,ele));
 				if (type === Event.MOUSE_UP && ele.$_MOUSEDOWN) {
 					ele.$_MOUSEDOWN = false;
@@ -135,14 +140,14 @@ import { Sprite } from "../../../../../../core/src/laya/display/Sprite"
 				}
 			}
 		}
-		 selectDisUnderMouse():void
+		selectDisUnderMouse():void
 		{
 			DisplayHook.isFirst=true;
 			this.check(Laya.stage, Laya.stage.mouseX, Laya.stage.mouseY, null, true, false);
 		}
 		
 		private isGetting:boolean = false;
-		 getDisUnderMouse():Sprite
+		getDisUnderMouse():Sprite
 		{
 			this.isGetting = true;
 			DisplayHook.isFirst = true;
@@ -151,7 +156,7 @@ import { Sprite } from "../../../../../../core/src/laya/display/Sprite"
 			this.isGetting = false;
 			return DebugTool.target;
 		}
-		 static isFirst:boolean=false;
+		static isFirst:boolean=false;
 		private check(sp:Sprite, mouseX:number, mouseY:number, callBack:Function, hitTest:boolean, mouseEnable:boolean):boolean {
 //			trace("check:"+sp.name);
 			if (sp == DebugTool.debugLayer) return false;
@@ -179,8 +184,8 @@ import { Sprite } from "../../../../../../core/src/laya/display/Sprite"
 				//父对象没有接收到事件，子对象不再测试
 				if (isHit) {
 					var flag:boolean = false;
-					for (var i:number = sp._children.length - 1; i > -1; i--) {
-						var child:Sprite = sp._children[i];
+					for (var i:number = (sp as any)._children.length - 1; i > -1; i--) {
+						var child:Sprite = (sp as any)._children[i];
 						//只有接受交互事件的，才进行处理
 						 (flag = this.check(child, mouseX, mouseY, callBack, hitTest, true));
 						if (flag) break;
@@ -204,12 +209,8 @@ import { Sprite } from "../../../../../../core/src/laya/display/Sprite"
 						}
 					}
 				}
-
-				
 			}
 			return isHit;
 		}
 		
 	}
-
-

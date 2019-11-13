@@ -11,6 +11,7 @@ import { Vector3 } from "../math/Vector3";
 import { Vector4 } from "../math/Vector4";
 import { TextureGenerator } from "../resource/TextureGenerator";
 import { TextureFormat } from "../../resource/TextureFormat";
+import { Physics3D } from "../physics/Physics3D";
 
 /**
  * <code>Utils3D</code> 类用于创建3D工具。
@@ -39,17 +40,18 @@ export class Utils3D {
 	/**
 	 * @internal
 	 */
-	static _convertToLayaVec3(bVector: any, out: Vector3, inverseX: boolean): void {
-		out.x = inverseX ? -bVector.x() : bVector.x();
-		out.y = bVector.y();
-		out.z = bVector.z();
+	static _convertToLayaVec3(bVector: number, out: Vector3, inverseX: boolean): void {
+		var bullet: any = Physics3D._bullet;
+		out.x = inverseX ? - bullet.btVector3_z(bVector) : bullet.btVector3_x(bVector);
+		out.y = bullet.btVector3_y(bVector);
+		out.z = bullet.btVector3_z(bVector);
 	}
 
 	/**
 	 * @internal
 	 */
-	static _convertToBulletVec3(lVector: Vector3, out: any, inverseX: boolean): void {
-		out.setValue(inverseX ? -lVector.x : lVector.x, lVector.y, lVector.z);
+	static _convertToBulletVec3(lVector: Vector3, out: number, inverseX: boolean): void {
+		Physics3D._bullet.btVector3_setValue(out, inverseX ? -lVector.x : lVector.x, lVector.y, lVector.z);
 	}
 
 	/**
@@ -388,6 +390,17 @@ export class Utils3D {
 		result[resultOffset] = (coordinateX * transformElem[0]) + (coordinateY * transformElem[4]) + (coordinateZ * transformElem[8]) + transformElem[12] / w;
 		result[resultOffset + 1] = (coordinateX * transformElem[1]) + (coordinateY * transformElem[5]) + (coordinateZ * transformElem[9]) + transformElem[13] / w;
 		result[resultOffset + 2] = (coordinateX * transformElem[2]) + (coordinateY * transformElem[6]) + (coordinateZ * transformElem[10]) + transformElem[14] / w;
+	}
+
+	static transformVector3ArrayToVector3ArrayNormal(source: Float32Array, sourceOffset: number, transform: Matrix4x4, result: Float32Array, resultOffset: number): void {
+		var coordinateX: number = source[sourceOffset + 0];
+		var coordinateY: number = source[sourceOffset + 1];
+		var coordinateZ: number = source[sourceOffset + 2];
+
+		var transformElem: Float32Array = transform.elements;
+		result[resultOffset] = coordinateX * transformElem[0] + coordinateY * transformElem[4] + coordinateZ * transformElem[8];
+		result[resultOffset + 1] = coordinateX * transformElem[1] + coordinateY * transformElem[5] + coordinateZ * transformElem[9];
+		result[resultOffset + 2] = coordinateX * transformElem[2] + coordinateY * transformElem[6] + coordinateZ * transformElem[10];
 	}
 
 	/**

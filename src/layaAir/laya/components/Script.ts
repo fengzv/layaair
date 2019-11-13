@@ -7,15 +7,16 @@ import { ILaya } from "../../ILaya";
  * 组件的生命周期
  */
 export class Script extends Component {
-		/**
-		 * @inheritDoc
-		 * @override
-		 */
-		  get isSingleton(): boolean {
+	/**
+	 * @inheritDoc
+	 * @override
+	 */
+	get isSingleton(): boolean {
 		return false;
 	}
 
 	/**
+	 * @internal
 	 * @inheritDoc
 	 * @override
 	 */
@@ -26,11 +27,12 @@ export class Script extends Component {
 		}
 	}
 
-		/**
-		 * @inheritDoc
-		 * @override
-		 */
-		protected _onEnable(): void {
+	/**
+	 * @internal
+	 * @inheritDoc
+	 * @override
+	 */
+	protected _onEnable(): void {
 		var proto: any = Script.prototype;
 		if (this.onTriggerEnter !== proto.onTriggerEnter) {
 			this.owner.on(Event.TRIGGER_ENTER, this, this.onTriggerEnter);
@@ -98,11 +100,12 @@ export class Script extends Component {
 		}
 	}
 
-		/**
-		 * @inheritDoc
-		 * @override
-		 */
-		protected _onDisable(): void {
+	/**
+	 * @internal
+	 * @inheritDoc
+	 * @override
+	 */
+	protected _onDisable(): void {
 		this.owner.offAllCaller(this);
 		ILaya.stage.offAllCaller(this);
 		ILaya.startTimer.clearAll(this);
@@ -110,19 +113,20 @@ export class Script extends Component {
 		ILaya.lateTimer.clearAll(this);
 	}
 
-		/**
-		 * @internal
-		 * @override
-		 */
-		 _isScript(): boolean {
+	/**
+	 * @internal
+	 * @override
+	 */
+	_isScript(): boolean {
 		return true;
 	}
 
-		/**
-		 * @inheritDoc
-		 * @override
-		 */
-		protected _onDestroy(): void {
+	/**
+	 * @internal
+	 * @inheritDoc
+	 * @override
+	 */
+	protected _onDestroy(): void {
 		this.onDestroy();
 	}
 

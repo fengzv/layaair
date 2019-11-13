@@ -88,7 +88,7 @@ export class Laya {
 	/** 加载管理器的引用。*/
 	static loader: LoaderManager = null;
 	/** 当前引擎版本。*/
-	static version: string = "2.2.0beta3";
+	static version: string = "2.4.0beta";
 	/**@private Render 类的引用。*/
 	static render: Render;
 	/**@internal */
@@ -99,36 +99,59 @@ export class Laya {
 	static isWXPosMsg: boolean = false;
 
 	/**@internal*/
-    static __classmap: Object = null;
-    
-    static Config=Config;    //这种写法是为了防止被混淆掉，不能用其他技巧，例如 assin({Config,Stage,...})
-    static TextRender=TextRender;
-    static EventDispatcher=EventDispatcher;
-    static SoundChannel=SoundChannel;
-    static Stage=Stage;
-    static Render=Render;
-    static Browser=Browser;
-    static Sprite=Sprite;
-    static Node=Node;
-    static Context=Context;
-    static WebGL=WebGL;
-    static Handler=Handler;
-    static RunDriver=RunDriver;
-    static Utils=Utils;
-    static Input=Input;
-    static Loader=Loader;
-    static LocalStorage=LocalStorage;
-    static SoundManager=SoundManager;
-    static URL=URL;
-    static Event=Event;
-    static Matrix=Matrix;
-    static HTMLImage=HTMLImage;
-    static Laya=Laya;
-    
+	static __classmap: Object = null;
+
+	/**@internal*/
+	static Config = Config;    //这种写法是为了防止被混淆掉，不能用其他技巧，例如 assin({Config,Stage,...})
+	/**@internal*/
+	static TextRender = TextRender;
+	/**@internal*/
+	static EventDispatcher = EventDispatcher;
+	/**@internal*/
+	static SoundChannel = SoundChannel;
+	/**@internal*/
+	static Stage = Stage;
+	/**@internal*/
+	static Render = Render;
+	/**@internal*/
+	static Browser = Browser;
+	/**@internal*/
+	static Sprite = Sprite;
+	/**@internal*/
+	static Node = Node;
+	/**@internal*/
+	static Context = Context;
+	/**@internal*/
+	static WebGL = WebGL;
+	/**@internal*/
+	static Handler = Handler;
+	/**@internal*/
+	static RunDriver = RunDriver;
+	/**@internal*/
+	static Utils = Utils;
+	/**@internal*/
+	static Input = Input;
+	/**@internal*/
+	static Loader = Loader;
+	/**@internal*/
+	static LocalStorage = LocalStorage;
+	/**@internal*/
+	static SoundManager = SoundManager;
+	/**@internal*/
+	static URL = URL;
+	/**@internal*/
+	static Event = Event;
+	/**@internal*/
+	static Matrix = Matrix;
+	/**@internal*/
+	static HTMLImage = HTMLImage;
+	/**@internal*/
+	static Laya = Laya;
+
 	/**
 	 * 兼容as3编译工具 
 	 */
-	static __init(_classs: any): void {
+	static __init(_classs: any[]): void {
 		_classs.forEach(function (o) { o.__init$ && o.__init$(); });
 	}
 
@@ -147,7 +170,7 @@ export class Laya {
 
 		// 创建主画布
 		//这个其实在Render中感觉更合理，但是runtime要求第一个canvas是主画布，所以必须在下面的那个离线画布之前
-		var mainCanv: HTMLCanvas = Browser.mainCanvas = new HTMLCanvas(true);
+		var mainCanv = Browser.mainCanvas = new HTMLCanvas(true);
 		//Render._mainCanvas = mainCanv;
 		var style: any = mainCanv.source.style;
 		style.position = 'absolute';
@@ -191,15 +214,17 @@ export class Laya {
 		Mouse.__init__();
 
 		WebGL.inner_enable();
-		for (var i: number = 0, n: number = plugins.length; i < n; i++) {
-			if (plugins[i] && plugins[i].enable) {
-				plugins[i].enable();
+		if (plugins) {
+			for (var i = 0, n = plugins.length; i < n; i++) {
+				if (plugins[i] && plugins[i].enable) {
+					plugins[i].enable();
+				}
 			}
 		}
 		if (ILaya.Render.isConchApp) {
 			Laya.enableNative();
 		}
-
+		Laya.enableWebGLPlus();
 		CacheManger.beginCheck();
 		stage = Laya.stage = new Stage();
 		ILaya.stage = Laya.stage;
@@ -277,26 +302,28 @@ export class Laya {
 	 * @param	debugJsPath laya.debugtool.js文件路径
 	 */
 	static enableDebugPanel(debugJsPath: string = "libs/laya.debugtool.js"): void {
-		if (!Laya["DebugPanel"]) {
+		if (!window['Laya']["DebugPanel"]) {
 			var script: any = Browser.createElement("script");
 			script.onload = function (): void {
-				Laya["DebugPanel"].enable();
+				window['Laya']["DebugPanel"].enable();
 			}
 			script.src = debugJsPath;
 			Browser.document.body.appendChild(script);
 		} else {
-			Laya["DebugPanel"].enable();
+			window['Laya']["DebugPanel"].enable();
 		}
 	}
 
 	private static isNativeRender_enable: boolean = false;
 	/**@private */
+	private static enableWebGLPlus(): void {
+		WebGLContext.__init_native();
+	}
+	/**@private */
 	private static enableNative(): void {
 		if (Laya.isNativeRender_enable)
 			return;
 		Laya.isNativeRender_enable = true;
-
-		WebGLContext.__init_native();
 		Shader.prototype.uploadTexture2D = function (value: any): void {
 			var gl: WebGLRenderingContext = LayaGL.instance;
 			gl.bindTexture(gl.TEXTURE_2D, (<WebGLTexture>value));
@@ -354,11 +381,6 @@ export class Laya {
 			}
 			return this._texture;
 		}
-
-		if (Render.supportWebGLPlusRendering) {
-			((<any>LayaGLRunner)).uploadShaderUniforms = LayaGLRunner.uploadShaderUniformsForNative;
-		}
-
 	}
 }
 
@@ -403,42 +425,43 @@ if (libs) {
 }
 
 let win = window as any;
-if(win.Laya){
-    win.Laya.Laya = Laya;
-    Object.assign(win.Laya, Laya);
-}else
-    win.Laya = Laya;
+if (win.Laya) {
+	win.Laya.Laya = Laya;
+	Object.assign(win.Laya, Laya);
+} else
+	win.Laya = Laya;
 
 export var __init = Laya.__init;
-export var init = Laya.init;	
-export var stage:Stage;
-export var systemTimer:Timer;
-export var startTimer:Timer;
-export var physicsTimer:Timer;
-export var updateTimer:Timer;
-export var lateTimer:Timer;
-export var timer:Timer;
-export var loader:LoaderManager;
+export var init = Laya.init;
+export var stage: Stage;
+export var systemTimer: Timer;
+export var startTimer: Timer;
+export var physicsTimer: Timer;
+export var updateTimer: Timer;
+export var lateTimer: Timer;
+export var timer: Timer;
+export var loader: LoaderManager;
 export var version = Laya.version;
-export var render:Render;
-export var isWXOpenDataContext:boolean;
-export var isWXPosMsg:boolean;
+export var render: Render;
+export var isWXOpenDataContext: boolean;
+export var isWXPosMsg: boolean;
 export var alertGlobalError = Laya.alertGlobalError;
 export var enableDebugPanel = Laya.enableDebugPanel;
 
-export function _static(_class,def){
-    for(var i=0,sz=def.length;i<sz;i+=2){
-        if(def[i]=='length') 
-            _class.length=def[i+1].call(_class);
-        else{
-            function tmp(){
-                var name=def[i];
-                var getfn=def[i+1];
-                Object.defineProperty(_class,name,{
-                    get:function(){delete this[name];return this[name]=getfn.call(this);},
-                    set:function(v){delete this[name];this[name]=v;},enumerable: true,configurable: true});
-            }
-            tmp();
-        }
-    }
+export function _static(_class: any, def: any) {
+	for (var i = 0, sz = def.length; i < sz; i += 2) {
+		if (def[i] == 'length')
+			_class.length = def[i + 1].call(_class);
+		else {
+			function tmp() {
+				var name = def[i];
+				var getfn = def[i + 1];
+				Object.defineProperty(_class, name, {
+					get: function () { delete this[name]; return this[name] = getfn.call(this); },
+					set: function (v) { delete this[name]; this[name] = v; }, enumerable: true, configurable: true
+				});
+			}
+			tmp();
+		}
+	}
 }

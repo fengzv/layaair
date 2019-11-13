@@ -1,7 +1,7 @@
 import { RenderableSprite3D } from "./RenderableSprite3D";
 import { MeshFilter } from "./MeshFilter";
 import { MeshRenderer } from "./MeshRenderer";
-import { BaseMaterial } from "./material/BaseMaterial"
+import { Material } from "./material/Material";
 import { DynamicBatchManager } from "../graphics/DynamicBatchManager"
 import { MeshRenderDynamicBatchManager } from "../graphics/MeshRenderDynamicBatchManager"
 import { MeshRenderStaticBatchManager } from "../graphics/MeshRenderStaticBatchManager"
@@ -32,16 +32,14 @@ export class MeshSprite3D extends RenderableSprite3D {
 	private _meshFilter: MeshFilter;
 
 	/**
-	 * 获取网格过滤器。
-	 * @return  网格过滤器。
+	 * 网格过滤器。
 	 */
 	get meshFilter(): MeshFilter {
 		return (<MeshFilter>this._meshFilter);
 	}
 
 	/**
-	 * 获取网格渲染器。
-	 * @return  网格渲染器。
+	 * 网格渲染器。
 	 */
 	get meshRenderer(): MeshRenderer {
 		return (<MeshRenderer>this._render);
@@ -75,7 +73,7 @@ export class MeshSprite3D extends RenderableSprite3D {
 		(data.enableRender != undefined) && (this.meshRenderer.enable = data.enableRender);
 		var materials: any[] = data.materials;
 		if (materials) {
-			var sharedMaterials: BaseMaterial[] = render.sharedMaterials;
+			var sharedMaterials: Material[] = render.sharedMaterials;
 			var materialCount: number = materials.length;
 			sharedMaterials.length = materialCount;
 			for (var i: number = 0; i < materialCount; i++) {

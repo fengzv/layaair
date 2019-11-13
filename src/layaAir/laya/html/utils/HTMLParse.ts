@@ -8,6 +8,7 @@ import { IHtml } from "./IHtml";
 import { HTMLBrElement } from "../dom/HTMLBrElement";
 import { HTMLStyleElement } from "../dom/HTMLStyleElement";
 import { HTMLLinkElement } from "../dom/HTMLLinkElement";
+import { HTMLImageElement } from "../dom/HTMLImageElement";
 /**
  * @private
  */
@@ -196,3 +197,5 @@ ClassUtils.regClass('font', HTMLElement);
 ClassUtils.regClass('a', HTMLElement);
 ClassUtils.regClass('#text', HTMLElement);
 ClassUtils.regClass('link', HTMLLinkElement);
+ClassUtils.regClass("laya.html.utils.HTMLParse", HTMLParse);
+ClassUtils.regClass("Laya.HTMLParse", HTMLParse);

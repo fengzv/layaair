@@ -33,7 +33,7 @@ class emiter {
         };
     }
     static get BaseURL() {
-        return emiter._BaseURL || "./bin/layaAir/";
+        return emiter._BaseURL || "../bin/layaAir/";
     }
     static set BaseURL(v) {
         emiter._BaseURL = v;
@@ -454,48 +454,52 @@ class emiter {
         if (!node)
             return "*";
         let type = ts.SyntaxKind[node.kind];
+        if (emiter.tsToasTypeObj[type])
+            return emiter.tsToasTypeObj[type];
         switch (type) {
-            case "ArrayType":
-                return "Array";
-            case "StringKeyword":
-                return "String";
-            case "AnyKeyword":
-                return "*";
-            case "BooleanKeyword":
-                return "Boolean";
-            case "NumberKeyword":
-                return "Number";
-            case "VoidKeyword":
-                return "void";
             case "TypeReference":
                 //自定义类型
-                let type = node.typeName.getText();
-                if (type == "ArrayLike")
+                type = node.typeName.getText();
+                if (type == "ArrayLike") {
                     type = "Array";
+                }
+                else if (type == "Readonly") {
+                    type = "";
+                    for (let i = 0; i < node.typeArguments.length; i++) {
+                        type += (i ? "|" : "") + this.emitType(node.typeArguments[i]);
+                    }
+                }
                 //检测内部枚举是否是枚举类型
-                if (this.enumType.indexOf(type) != -1)
+                if (this.enumType.indexOf(type) != -1) {
                     return "*";
+                }
                 //如果是内部类且有引用
                 if (this.innerClass && this.importArr[type] && this.classNameNow != type) {
-                    if (this.innerImportStr.indexOf(this.importArr[type]) == -1)
+                    if (this.innerImportStr.indexOf(this.importArr[type]) == -1) {
                         this.innerImportStr += "\r\n\timport " + this.importArr[type] + ";";
+                    }
                 }
                 //检测tsc类型
-                if (emiter.jscObj && emiter.jscObj[type])
+                if (emiter.jscObj && emiter.jscObj[type]) {
                     type = emiter.jscObj[type];
+                }
                 return type;
-            case "ConstructorType":
-                return "Class";
             case "TypeQuery":
                 // console.log("console test:",node.exprName.getText());
                 return node.exprName.getText();
             case "UnionType":
-                return "*";
-            case "FunctionType":
-                return "Function";
+                type = "";
+                node = node;
+                for (let i = 0; i < node.types.length; i++) {
+                    type += (i ? "|" : "") + this.emitType(node.types[i]);
+                }
+                type = type.replace(/\|\s*null|\|\s*undefined/gm, "");
+                if (type.indexOf("|") != -1)
+                    type = "*";
+                return type;
             default:
-                console.log("TODO :", type);
-                return "";
+                console.log("TODO :", type, this.url + "/" + this.classNameNow);
+                return "*";
         }
     }
     /**
@@ -521,6 +525,13 @@ class emiter {
             else if (type == "Array") {
                 type = "Array<" + this.emitArray(node) + ">";
             }
+            else if (type == "Readonly") {
+                type = "Readonly<";
+                for (let i = 0; i < node.typeArguments.length; i++) {
+                    type += (i ? "|" : "") + this.emitTsType(node.typeArguments[i]);
+                }
+                type += ">";
+            }
             else if (this.importArr[type])
                 type = this.importArr[type];
         }
@@ -545,15 +556,42 @@ class emiter {
             else if (type == "UnionType") {
                 type = "";
                 for (let i = 0; i < node.types.length; i++) {
-                    let typeone = node.types[i];
-                    typeone = typeone.getText();
-                    if (this.importArr[typeone])
-                        typeone = this.importArr[typeone];
-                    type += typeone + (i == node.types.length - 1 ? "" : "|");
+                    let typeone = this.emitTsType(node.types[i]);
+                    type += (i ? "|" : "") + typeone;
                 }
             }
-            else
+            else if (type == "TypeLiteral") {
+                let _node = node;
+                let typestr = "{";
+                if (_node.members) {
+                    for (let i = 0; i < _node.members.length; i++) {
+                        let __node = _node.members[0];
+                        if (__node.parameters) { //检测param
+                            for (let j = 0; j < __node.parameters.length; j++) {
+                                let ___node = __node.parameters[0];
+                                typestr += "[key:" + this.emitTsType(___node.type) + "]:";
+                            }
+                        }
+                        typestr += this.emitTsType(__node.type) + ";";
+                    }
+                }
+                type = typestr + "}";
+            }
+            else if (type == "FunctionType") {
+                let _node = node;
+                type = "(";
+                //方法类型
+                if (_node.parameters) {
+                    for (let i = 0; i < _node.parameters.length; i++) {
+                        let paramNode = _node.parameters[i];
+                        type += (i ? "," : "") + paramNode.name.getText() + ":" + this.emitTsType(paramNode.type);
+                    }
+                }
+                type += ") =>" + this.emitTsType(_node.type);
+            }
+            else {
                 type = node.getText();
+            }
         }
         if (this.importArr[type])
             return this.importArr[type];
@@ -632,7 +670,24 @@ class emiter {
 }
 /**所有已经识别的没有准备的方法 */
 emiter._typeArr = ["VariableStatement", "ExportDeclaration", "Uint16Array", "Float32Array",
-    "FunctionDeclaration"];
+    "FunctionDeclaration", "loadItem"];
+/**
+ * 已知 的简单对应表
+ */
+emiter.tsToasTypeObj = {
+    "ArrayType": "Array",
+    "StringKeyword": "String",
+    "BooleanKeyword": "Boolean",
+    "NumberKeyword": "Number",
+    "VoidKeyword": "void",
+    "ConstructorType": "Class",
+    "TypeLiteral": "*",
+    "AnyKeyword": "*",
+    "FunctionType": "Function",
+    "ObjectKeyword": "Object",
+    "NullKeyword": "null",
+    "UndefinedKeyword": "undefined"
+};
 /**jsc对应的astype */
 emiter.jscObj = {};
 /**构成的d.ts数据 */

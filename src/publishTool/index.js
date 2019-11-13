@@ -30,13 +30,13 @@ class Main {
         /**入口 */
         this.start();
         // this.tstoas("laya\\ani\\bone\\spine\\SpineSkeletonRenderer.d.ts",null,"laya\\ani\\bone\\spine");
-        // this.tstoas("laya\\resource\\Texture2D.d.ts",null,"laya\\resource");
+        // this.tstoas("laya\\d3\\core\\Transform3D.d.ts",null,"laya\\d3\\core\\");
         // this.tstoas("laya\\html\\dom\\HTMLElement.d.ts", null, "laya\\html\\dom");
         // this.tstoas("laya\\d3\\resource\\RenderTexture.d.ts",null,"laya\\d3\\resource");
         // this.tstoas("laya\\d3\\component\\SingletonList.d.ts",null,"laya\\d3\\component");
     }
     get BaseURL() {
-        return this._BaseURL || "./bin/layaAir/";
+        return this._BaseURL || "../bin/layaAir/";
     }
     set BaseURL(value) {
         this._BaseURL = value;
@@ -55,8 +55,7 @@ class Main {
                 this.checkAllDir("");
             }
             else {
-                child_process.exec("pause");
-                child_process.exec("exit");
+                console.log("compile fail!");
             }
         });
     }
@@ -83,15 +82,13 @@ class Main {
             for (let i = 0; i < this.tsCongfig.length; i++) {
                 mark++;
                 let tsConfigUrl = this.tsCongfig[i];
-                let tscLayaAir = child_process.exec("tsc -b " + tsConfigUrl);
-                //等待完成
-                tscLayaAir.on("exit", (err) => {
-                    if (err)
-                        console.log("tsc fail ", tsConfigUrl);
+                let cmd = ["-b", tsConfigUrl];
+                let tscurl = path.join(this.BaseURL.split("bin")[0], "./node_modules/.bin/tsc.cmd");
+                child_process.execFile(tscurl, cmd, (err, stdout, stderr) => {
+                    if (err) {
+                        console.log(err, '\n', stdout, '\n', stderr);
+                    }
                     start(err);
-                });
-                tscLayaAir.on("error", (err) => {
-                    console.log("Error :", err);
                 });
             }
         });
@@ -103,8 +100,6 @@ class Main {
                 this.createAS && this.createDir(this.outfileAS + url);
                 yield this.ergodic(fileData, url);
             }
-            else
-                console.log("readdir fail", url);
         });
     }
     /**
@@ -118,6 +113,7 @@ class Main {
             if (!code) {
                 code = yield this.readFile(infile);
             }
+            // code = code.replace(/\|\s*null/gm,"");    
             const sc = ts.createSourceFile(this.formatUrl(infile), code, ts.ScriptTarget.Latest, true);
             this.addName(sc); // 为了调试方便，给每个节点加上名字
             let em = new emiter_1.emiter();
@@ -265,7 +261,7 @@ class Main {
         return new Promise(resolve => {
             fs.readFile(this.formatUrl(fileUrl), "utf8", (err, files) => {
                 if (err) {
-                    console.error("readfile fial", fileUrl);
+                    console.error("readfile fail", fileUrl);
                     return resolve(0);
                 }
                 this.complete++;
@@ -331,4 +327,5 @@ class Main {
         return path.join(this.BaseURL, url);
     }
 }
+exports.Main = Main;
 new Main();

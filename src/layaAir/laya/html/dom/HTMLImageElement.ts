@@ -7,6 +7,7 @@ import { Loader } from "../../net/Loader"
 import { Texture } from "../../resource/Texture"
 import { IHtml } from "../utils/IHtml";
 import { ILaya } from "../../../ILaya";
+import { ClassUtils } from "../../utils/ClassUtils";
 
 /**
  * @private
@@ -41,7 +42,7 @@ export class HTMLImageElement extends HTMLElement {
         if (!tex) {
             this._tex = tex = new Texture();
             tex.load(url);
-            Loader.cacheRes(url, tex);
+            Loader.cacheTexture(url, tex);
         }
 
         tex.getIsReady() ? this.onloaded() : tex.once(Event.READY, this, this.onloaded);
@@ -90,3 +91,6 @@ export class HTMLImageElement extends HTMLElement {
 
 IHtml.HTMLImageElement = HTMLImageElement;
 ILaya.regClass(HTMLImageElement);
+
+ClassUtils.regClass("laya.html.dom.HTMLImageElement", HTMLImageElement);
+ClassUtils.regClass("Laya.HTMLImageElement", HTMLImageElement);

@@ -31,15 +31,14 @@ import { SimpleSingletonList } from "./SimpleSingletonList";
  * <code>Animator</code> 类用于创建动画组件。
  */
 export class Animator extends Component {
+	/**@internal */
 	private static _tempVector30: Vector3 = new Vector3();
+	/**@internal */
 	private static _tempVector31: Vector3 = new Vector3();
+	/**@internal */
 	private static _tempQuaternion0: Quaternion = new Quaternion();
+	/**@internal */
 	private static _tempQuaternion1: Quaternion = new Quaternion();
-
-	private static _tempVector3Array0: Float32Array = new Float32Array(3);
-	private static _tempVector3Array1: Float32Array = new Float32Array(3);
-	private static _tempQuaternionArray0: Float32Array = new Float32Array(4);
-	private static _tempQuaternionArray1: Float32Array = new Float32Array(4);
 
 	/** 裁剪模式_始终播放动画。*/
 	static CULLINGMODE_ALWAYSANIMATE: number = 0;
@@ -58,16 +57,19 @@ export class Animator extends Component {
 		}
 	}
 
+	/**@internal */
 	private _speed: number;
-
+	/**@internal */
 	private _keyframeNodeOwnerMap: any;
+	/**@internal */
 	private _keyframeNodeOwners: KeyframeNodeOwner[] = [];
+	/**@internal */
 	private _updateMark: number;
+	/**@internal */
 	private _controllerLayers: AnimatorControllerLayer[];
 
 	/**@internal */
 	_linkSprites: any;
-
 	/**@internal	*/
 	_avatarNodeMap: any;
 	/**@internal */
@@ -92,17 +94,12 @@ export class Animator extends Component {
 	_animationNodeParentIndices: Int16Array;
 
 	/**
-	 * 获取动画的播放速度,1.0为正常播放速度。
-	 * @return 动画的播放速度。
+	 * 动画的播放速度,1.0为正常播放速度。
 	 */
 	get speed(): number {
 		return this._speed;
 	}
 
-	/**
-	 * 设置动画的播放速度,1.0为正常播放速度。
-	 * @param 动画的播放速度。
-	 */
 	set speed(value: number) {
 		this._speed = value;
 	}
@@ -113,7 +110,6 @@ export class Animator extends Component {
 	constructor() {
 		super();
 		this._controllerLayers = [];
-
 		this._linkSprites = {};
 		this._speed = 1.0;
 		this._keyframeNodeOwnerMap = {};
@@ -121,6 +117,9 @@ export class Animator extends Component {
 	}
 
 
+	/**
+	 * @internal
+	 */
 	private _linkToSprites(linkSprites: any): void {
 		for (var k in linkSprites) {
 			var nodeOwner: Sprite3D = (<Sprite3D>this.owner);
@@ -139,6 +138,9 @@ export class Animator extends Component {
 		}
 	}
 
+	/**
+	 * @internal
+	 */
 	private _addKeyframeNodeOwner(clipOwners: KeyframeNodeOwner[], node: KeyframeNode, propertyOwner: any): void {
 		var nodeIndex: number = node._indexInList;
 		var fullPath: string = node.fullPath;
@@ -227,6 +229,9 @@ export class Animator extends Component {
 		}
 	}
 
+	/**
+	 * @internal
+	 */
 	private _updatePlayer(animatorState: AnimatorState, playState: AnimatorPlayState, elapsedTime: number, islooping: boolean): void {
 		var clipDuration: number = animatorState._clip._duration * (animatorState.clipEnd - animatorState.clipStart);
 		var lastElapsedTime: number = playState._elapsedTime;
@@ -258,6 +263,9 @@ export class Animator extends Component {
 		}
 	}
 
+	/**
+	 * @internal
+	 */
 	private _eventScript(scripts: Script3D[], events: AnimationEvent[], eventIndex: number, endTime: number, front: boolean): number {
 		if (front) {
 			for (var n: number = events.length; eventIndex < n; eventIndex++) {
@@ -289,6 +297,9 @@ export class Animator extends Component {
 		return eventIndex;
 	}
 
+	/**
+	 * @internal
+	 */
 	private _updateEventScript(stateInfo: AnimatorState, playStateInfo: AnimatorPlayState): void {
 		var scripts: Script3D[] = ((<Sprite3D>this.owner))._scripts;
 		if (scripts) {//TODO:play是否也换成此种计算
@@ -326,6 +337,9 @@ export class Animator extends Component {
 		}
 	}
 
+	/**
+	 * @internal
+	 */
 	private _updateClipDatas(animatorState: AnimatorState, addtive: boolean, playStateInfo: AnimatorPlayState, scale: number): void {
 		var clip: AnimationClip = animatorState._clip;
 		var clipDuration: number = clip._duration;
@@ -336,6 +350,9 @@ export class Animator extends Component {
 		clip._evaluateClipDatasRealTime(clip._nodes, curPlayTime, currentFrameIndices, addtive, frontPlay);
 	}
 
+	/**
+	 * @internal
+	 */
 	private _applyFloat(pro: any, proName: string, nodeOwner: KeyframeNodeOwner, additive: boolean, weight: number, isFirstLayer: boolean, data: number): void {
 		if (nodeOwner.updateMark === this._updateMark) {//一定非第一层
 			if (additive) {
@@ -361,6 +378,9 @@ export class Animator extends Component {
 		}
 	}
 
+	/**
+	 * @internal
+	 */
 	private _applyPositionAndRotationEuler(nodeOwner: KeyframeNodeOwner, additive: boolean, weight: number, isFirstLayer: boolean, data: Vector3, out: Vector3): void {
 		if (nodeOwner.updateMark === this._updateMark) {//一定非第一层
 			if (additive) {
@@ -405,6 +425,9 @@ export class Animator extends Component {
 		}
 	}
 
+	/**
+	 * @internal
+	 */
 	private _applyRotation(nodeOwner: KeyframeNodeOwner, additive: boolean, weight: number, isFirstLayer: boolean, clipRot: Quaternion, localRotation: Quaternion): void {
 		if (nodeOwner.updateMark === this._updateMark) {//一定非第一层
 			if (additive) {
@@ -440,6 +463,9 @@ export class Animator extends Component {
 		}
 	}
 
+	/**
+	 * @internal
+	 */
 	private _applyScale(nodeOwner: KeyframeNodeOwner, additive: boolean, weight: number, isFirstLayer: boolean, clipSca: Vector3, localScale: Vector3): void {
 		if (nodeOwner.updateMark === this._updateMark) {//一定非第一层
 			if (additive) {
@@ -478,6 +504,9 @@ export class Animator extends Component {
 		}
 	}
 
+	/**
+	 * @internal
+	 */
 	private _applyCrossData(nodeOwner: KeyframeNodeOwner, additive: boolean, weight: number, isFirstLayer: boolean, srcValue: any, desValue: any, crossWeight: number): void {
 		var pro: any = nodeOwner.propertyOwner;
 		if (pro) {
@@ -533,6 +562,9 @@ export class Animator extends Component {
 		}
 	}
 
+	/**
+	 * @internal
+	 */
 	private _setClipDatasToNode(stateInfo: AnimatorState, additive: boolean, weight: number, isFirstLayer: boolean): void {
 		var nodes: KeyframeNodeList = stateInfo._clip._nodes;
 		var nodeOwners: KeyframeNodeOwner[] = stateInfo._nodeOwners;
@@ -579,6 +611,9 @@ export class Animator extends Component {
 		}
 	}
 
+	/**
+	 * @internal
+	 */
 	private _setCrossClipDatasToNode(controllerLayer: AnimatorControllerLayer, srcState: AnimatorState, destState: AnimatorState, crossWeight: number, isFirstLayer: boolean): void {
 		//TODO:srcNodes、destNodes未使用
 		var nodeOwners: KeyframeNodeOwner[] = controllerLayer._crossNodesOwners;
@@ -606,6 +641,9 @@ export class Animator extends Component {
 	}
 
 
+	/**
+	 * @internal
+	 */
 	private _setFixedCrossClipDatasToNode(controllerLayer: AnimatorControllerLayer, destState: AnimatorState, crossWeight: number, isFirstLayer: boolean): void {
 		var nodeOwners: KeyframeNodeOwner[] = controllerLayer._crossNodesOwners;
 		var ownerCount: number = controllerLayer._crossNodesOwnersCount;
@@ -625,6 +663,9 @@ export class Animator extends Component {
 		}
 	}
 
+	/**
+	 * @internal
+	 */
 	private _revertDefaultKeyframeNodes(clipStateInfo: AnimatorState): void {
 		var nodeOwners: KeyframeNodeOwner[] = clipStateInfo._nodeOwners;
 		for (var i: number = 0, n: number = nodeOwners.length; i < n; i++) {
@@ -698,6 +739,7 @@ export class Animator extends Component {
 
 	/**
 	 * @inheritDoc
+	 * @internal
 	 * @override
 	 */
 	protected _onDestroy(): void {
@@ -709,6 +751,7 @@ export class Animator extends Component {
 
 	/**
 	 * @inheritDoc
+	 * @internal
 	 * @override
 	 */
 	protected _onEnable(): void {
@@ -723,6 +766,7 @@ export class Animator extends Component {
 
 	/**
 	 * @inheritDoc
+	 * @internal
 	 * @override
 	 */
 	protected _onDisable(): void {
@@ -834,7 +878,7 @@ export class Animator extends Component {
 			addtive = controllerLayer.blendingMode !== AnimatorControllerLayer.BLENDINGMODE_OVERRIDE;
 			switch (controllerLayer._playType) {
 				case 0:
-					var animatorState: AnimatorState = controllerLayer._currentPlayState;
+					var animatorState: AnimatorState = playStateInfo._currentState;
 					var clip: AnimationClip = animatorState._clip;
 					var speed: number = this._speed * animatorState.speed;
 					var finish: boolean = playStateInfo._finish;//提前取出finish,防止最后一帧跳过
@@ -847,7 +891,7 @@ export class Animator extends Component {
 					}
 					break;
 				case 1:
-					animatorState = controllerLayer._currentPlayState;
+					animatorState = playStateInfo._currentState;
 					clip = animatorState._clip;
 					var crossClipState: AnimatorState = controllerLayer._crossPlayState;
 					var crossClip: AnimationClip = crossClipState._clip;
@@ -864,18 +908,18 @@ export class Animator extends Component {
 							this._setClipDatasToNode(crossClipState, addtive, controllerLayer.defaultWeight, i === 0);
 
 							controllerLayer._playType = 0;//完成融合,切换到正常播放状态
-							controllerLayer._currentPlayState = crossClipState;
+							playStateInfo._currentState = crossClipState;
 							crossPlayStateInfo._cloneTo(playStateInfo);
 						}
 					} else {
 						if (!playStateInfo._finish) {
 							speed = this._speed * animatorState.speed;
 							this._updatePlayer(animatorState, playStateInfo, delta * speed, clip.islooping);
-							if (needRender) {
-								this._updateClipDatas(animatorState, addtive, playStateInfo, timerScale * speed);
-							}
 						}
 						if (needRender) {
+							//even the animatorState has finish,must call _updateClipDatas(animatorState....),
+							//because other animator share this clip will change the public data in clip
+							this._updateClipDatas(animatorState, addtive, playStateInfo, timerScale * speed);
 							this._updateClipDatas(crossClipState, addtive, crossPlayStateInfo, timerScale * crossScale * crossSpeed);
 							this._setCrossClipDatasToNode(controllerLayer, animatorState, crossClipState, crossWeight, i === 0);
 						}
@@ -900,7 +944,7 @@ export class Animator extends Component {
 							this._updateClipDatas(crossClipState, addtive, crossPlayStateInfo, timerScale * crossSpeed);
 							this._setClipDatasToNode(crossClipState, addtive, 1.0, i === 0);
 							controllerLayer._playType = 0;//完成融合,切换到正常播放状态
-							controllerLayer._currentPlayState = crossClipState;
+							playStateInfo._currentState = crossClipState;
 							crossPlayStateInfo._cloneTo(playStateInfo);
 						} else {
 							this._updateClipDatas(crossClipState, addtive, crossPlayStateInfo, timerScale * crossScale * crossSpeed);
@@ -996,15 +1040,6 @@ export class Animator extends Component {
 	}
 
 	/**
-	 * 获取当前的播放状态。
-	 *	@param   layerIndex 层索引。
-	 * 	@return  动画播放状态。
-	 */
-	getCurrentAnimatorPlayState(layerInex: number = 0): AnimatorPlayState {
-		return this._controllerLayers[layerInex]._playStateInfo;
-	}
-
-	/**
 	 * 播放动画。
 	 * @param	name 如果为null则播放默认动画，否则按名字播放动画片段。
 	 * @param	layerIndex 层索引。
@@ -1015,9 +1050,10 @@ export class Animator extends Component {
 		if (controllerLayer) {
 			var defaultState: AnimatorState = controllerLayer.defaultState;
 			if (!name && !defaultState)
-				throw new Error("Animator:must have  default clip value,please set clip property.");
-			var curPlayState: AnimatorState = controllerLayer._currentPlayState;
+				throw new Error("Animator:must have default clip value,please set clip property.");
 			var playStateInfo: AnimatorPlayState = controllerLayer._playStateInfo;
+			var curPlayState: AnimatorState = playStateInfo._currentState;
+
 
 			var animatorState: AnimatorState = name ? controllerLayer._statesMap[name] : defaultState;
 			var clipDuration: number = animatorState._clip._duration;
@@ -1028,7 +1064,7 @@ export class Animator extends Component {
 					playStateInfo._resetPlayState(0.0);
 				(curPlayState !== null && curPlayState !== animatorState) && (this._revertDefaultKeyframeNodes(curPlayState));
 				controllerLayer._playType = 0;
-				controllerLayer._currentPlayState = animatorState;
+				playStateInfo._currentState = animatorState;
 			} else {
 				if (normalizedTime !== Number.NEGATIVE_INFINITY) {
 					playStateInfo._resetPlayState(clipDuration * normalizedTime);
@@ -1069,7 +1105,7 @@ export class Animator extends Component {
 				var crossNodeOwners: KeyframeNodeOwner[] = controllerLayer._crossNodesOwners;
 				var crossNodeOwnerIndicesMap: any = controllerLayer._crossNodesOwnersIndicesMap;
 
-				var srcAnimatorState: AnimatorState = controllerLayer._currentPlayState;
+				var srcAnimatorState: AnimatorState = controllerLayer._playStateInfo._currentState;
 				var destNodeOwners: KeyframeNodeOwner[] = destAnimatorState._nodeOwners;
 				var destCrossClipNodeIndices: number[] = controllerLayer._destCrossClipNodeIndices;
 				var destClip: AnimationClip = destAnimatorState._clip;
@@ -1181,22 +1217,28 @@ export class Animator extends Component {
 		}
 	}
 
-	//-----------------------------------------------------------------------------------------------------------------------------------------------------------
+	/**
+	 * @deprecated
+	 * 获取当前的播放状态。
+	 * @param   layerIndex 层索引。
+	 * @return  动画播放状态。
+	 */
+	getCurrentAnimatorPlayState(layerInex: number = 0): AnimatorPlayState {
+		return this._controllerLayers[layerInex]._playStateInfo;
+	}
 
+
+	//-----------------------------------------------------------------------------------------------------------------------------------------------------------
+	/** @internal */
 	private _avatar: Avatar;//[兼容性API]
 
 	/**
-	 * 获取avatar。
-	 * @return avator。
+	 * avatar。
 	 */
 	get avatar(): Avatar {//[兼容性API]
 		return this._avatar;
 	}
 
-	/**
-	 * 设置avatar。
-	 * @param value avatar。
-	 */
 	set avatar(value: Avatar) {//[兼容性API]
 		if (this._avatar !== value) {
 			this._avatar = value;
@@ -1210,6 +1252,25 @@ export class Animator extends Component {
 		}
 	}
 
+
+	/**
+	 *@internal
+	 */
+	private _isLinkSpriteToAnimationNodeData(sprite: Sprite3D, nodeName: string, isLink: boolean): void {//[兼容性API]
+		var linkSprites: any[] = this._linkAvatarSpritesData[nodeName];//存储挂点数据
+		if (isLink) {
+			linkSprites || (this._linkAvatarSpritesData[nodeName] = linkSprites = []);
+			linkSprites.push(sprite);
+		} else {
+			var index: number = linkSprites.indexOf(sprite);
+			linkSprites.splice(index, 1);
+		}
+	}
+
+
+	/**
+	 *@internal
+	 */
 	private _getAvatarOwnersAndInitDatasAsync(): void {//[兼容性API]
 		for (var i: number = 0, n: number = this._controllerLayers.length; i < n; i++) {
 			var clipStateInfos: AnimatorState[] = this._controllerLayers[i]._states;
@@ -1227,7 +1288,9 @@ export class Animator extends Component {
 		}
 	}
 
-
+	/**
+	 *@internal
+	 */
 	private _isLinkSpriteToAnimationNode(sprite: Sprite3D, nodeName: string, isLink: boolean): void {//[兼容性API]
 		if (this._avatar) {
 			var node: AnimationNode = this._avatarNodeMap[nodeName];
@@ -1257,18 +1320,6 @@ export class Animator extends Component {
 					this._linkAvatarSprites.splice(this._linkAvatarSprites.indexOf(sprite), 1);
 				}
 			}
-		}
-	}
-
-
-	private _isLinkSpriteToAnimationNodeData(sprite: Sprite3D, nodeName: string, isLink: boolean): void {//[兼容性API]
-		var linkSprites: any[] = this._linkAvatarSpritesData[nodeName];//存储挂点数据
-		if (isLink) {
-			linkSprites || (this._linkAvatarSpritesData[nodeName] = linkSprites = []);
-			linkSprites.push(sprite);
-		} else {
-			var index: number = linkSprites.indexOf(sprite);
-			linkSprites.splice(index, 1);
 		}
 	}
 
@@ -1307,18 +1358,13 @@ export class Animator extends Component {
 	 * @return 是否解除关联成功。
 	 */
 	unLinkSprite3DToAvatarNode(sprite3D: Sprite3D): boolean {//[兼容性API]
-		if (sprite3D._hierarchyAnimator === this) {
-			var dummy: AnimationTransform3D = sprite3D.transform._dummy;
-			if (dummy) {
-				var nodeName: string = dummy._owner.name;
-				this._isLinkSpriteToAnimationNodeData(sprite3D, nodeName, false);
-				this._isLinkSpriteToAnimationNode(sprite3D, nodeName, false);
-				return true;
-			} else {
-				return false;
-			}
+		var dummy: AnimationTransform3D = sprite3D.transform._dummy;
+		if (dummy) {
+			var nodeName: string = dummy._owner.name;
+			this._isLinkSpriteToAnimationNodeData(sprite3D, nodeName, false);
+			this._isLinkSpriteToAnimationNode(sprite3D, nodeName, false);
+			return true;
 		} else {
-			throw ("Animator:sprite3D must belong to this Animator");
 			return false;
 		}
 	}

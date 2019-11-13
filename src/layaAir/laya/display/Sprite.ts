@@ -1,30 +1,30 @@
+import { ILaya } from "../../ILaya";
+import { Const } from "../Const";
+import { Event } from "../events/Event";
+import { EventDispatcher } from "../events/EventDispatcher";
+import { ColorFilter } from "../filters/ColorFilter";
+import { Filter } from "../filters/Filter";
+import { GrahamScan } from "../maths/GrahamScan";
+import { Matrix } from "../maths/Matrix";
+import { Point } from "../maths/Point";
+import { Rectangle } from "../maths/Rectangle";
+import { RenderSprite } from "../renders/RenderSprite";
+import { Context } from "../resource/Context";
+import { HTMLCanvas } from "../resource/HTMLCanvas";
+import { Texture } from "../resource/Texture";
+import { Texture2D } from "../resource/Texture2D";
+import { ClassUtils } from "../utils/ClassUtils";
+import { Handler } from "../utils/Handler";
+import { Utils } from "../utils/Utils";
+import { BoundsStyle } from "./css/BoundsStyle";
+import { CacheStyle } from "./css/CacheStyle";
+import { SpriteStyle } from "./css/SpriteStyle";
+import { Graphics } from "./Graphics";
 import { Node } from "./Node";
 import { SpriteConst } from "./SpriteConst";
-import { Graphics } from "./Graphics";
 import { Stage } from "./Stage";
-import { Const } from "../Const"
-import { BoundsStyle } from "./css/BoundsStyle"
-import { CacheStyle } from "./css/CacheStyle"
-import { SpriteStyle } from "./css/SpriteStyle"
-import { Event } from "../events/Event"
-import { EventDispatcher } from "../events/EventDispatcher"
-import { ColorFilter } from "../filters/ColorFilter"
-import { Filter } from "../filters/Filter"
-import { GrahamScan } from "../maths/GrahamScan"
-import { Matrix } from "../maths/Matrix"
-import { Point } from "../maths/Point"
-import { Rectangle } from "../maths/Rectangle"
-import { RenderSprite } from "../renders/RenderSprite"
-import { Context } from "../resource/Context"
-import { HTMLCanvas } from "../resource/HTMLCanvas"
-import { Texture } from "../resource/Texture"
-import { Handler } from "../utils/Handler"
-import { Utils } from "../utils/Utils"
-import { Texture2D } from "../resource/Texture2D";
-import { Timer } from "../utils/Timer";
-import { Dragging } from "../utils/Dragging";
-import { ILaya } from "../../ILaya";
-import { ClassUtils } from "../utils/ClassUtils";
+import { URL } from "../net/URL";
+import { RenderTexture2D } from "../resource/RenderTexture2D";
 
 
 /**在显示对象上按下后调度。
@@ -1189,8 +1189,8 @@ export class Sprite extends Node {
      * @param offsetX 
      * @param offsetY 
      */
-    drawToTexture(canvasWidth: number, canvasHeight: number, offsetX: number, offsetY: number): Texture {
-        return Sprite.drawToTexture(this, this._renderType, canvasWidth, canvasHeight, offsetX, offsetY);
+    drawToTexture(canvasWidth: number, canvasHeight: number, offsetX: number, offsetY: number, rt:RenderTexture2D|null=null): Texture|RenderTexture2D {
+        return Sprite.drawToTexture(this, this._renderType, canvasWidth, canvasHeight, offsetX, offsetY,rt);
     }
 
     /**
@@ -1208,7 +1208,7 @@ export class Sprite extends Node {
      * @private
      * 绘制到画布。
      */
-    static drawToCanvas: Function = function (sprite: Sprite, _renderType: number, canvasWidth: number, canvasHeight: number, offsetX: number, offsetY: number): HTMLCanvas {
+    static drawToCanvas(sprite: Sprite, _renderType: number, canvasWidth: number, canvasHeight: number, offsetX: number, offsetY: number): HTMLCanvas {
         offsetX -= sprite.x;
         offsetY -= sprite.y;
         offsetX |= 0;
@@ -1219,6 +1219,7 @@ export class Sprite extends Node {
         ctx.size(canvasWidth, canvasHeight);
         ctx.asBitmap = true;
         ctx._targets.start();
+        ctx._targets.clear(0, 0, 0, 0);
         RenderSprite.renders[_renderType]._fun(sprite, ctx, offsetX, offsetY);
         ctx.flush();
         ctx._targets.end();
@@ -1247,28 +1248,41 @@ export class Sprite extends Node {
         return canv;
     }
 
+	static drawtocanvCtx:Context;
     /**
      * @private 
      * 
      */
-    static drawToTexture: Function = function (sprite: Sprite, _renderType: number, canvasWidth: number, canvasHeight: number, offsetX: number, offsetY: number): Texture {
+    static drawToTexture(sprite: Sprite, _renderType: number, canvasWidth: number, canvasHeight: number, offsetX: number, offsetY: number, rt:RenderTexture2D|null=null): Texture|RenderTexture2D {
+		if(!Sprite.drawtocanvCtx){
+			Sprite.drawtocanvCtx = new Context();
+		}
         offsetX -= sprite.x;
         offsetY -= sprite.y;
         offsetX |= 0;
         offsetY |= 0;
         canvasWidth |= 0;
         canvasHeight |= 0;
-        var ctx: Context = new Context();
-        ctx.size(canvasWidth, canvasHeight);
-        ctx.asBitmap = true;
+		var ctx = rt?Sprite.drawtocanvCtx:new Context();
+		ctx.clear();
+		ctx.size(canvasWidth, canvasHeight);
+		if(rt){
+			ctx._targets=rt;
+		}else{
+			ctx.asBitmap=true;
+		}
         ctx._targets.start();
+        ctx._targets.clear(0, 0, 0, 0);	// 否则没有地方调用clear
         RenderSprite.renders[_renderType]._fun(sprite, ctx, offsetX, offsetY);
         ctx.flush();
         ctx._targets.end();
-        ctx._targets.restore();
-        var rtex: Texture = new Texture(((<Texture2D>(ctx._targets as any))), Texture.INV_UV);
-        ctx.destroy(true);// 保留 _targets
-        return rtex;
+		ctx._targets.restore();
+		if(!rt){
+        	var rtex: Texture = new Texture(((<Texture2D>(ctx._targets as any))), Texture.INV_UV);
+        	ctx.destroy(true);// 保留 _targets
+			return rtex;
+		}
+		return rt;
     }
 
     /**
@@ -1541,18 +1555,18 @@ export class Sprite extends Node {
             this.texture = null;
             loaded.call(this);
         } else {
-            var tex: Texture = ILaya.Loader.getRes(url);
+            var tex: Texture = ILaya.Loader.textureMap[URL.formatURL(url)];
             if (!tex) {
                 tex = new Texture();
                 tex.load(url);
-                ILaya.Loader.cacheRes(url, tex);
+                ILaya.Loader.cacheTexture(url, tex);
             }
             this.texture = tex;
             if (!tex.getIsReady()) tex.once(Event.READY, this, loaded);
             else loaded.call(this);
         }
 
-        function loaded(): void {
+        function loaded(this:Sprite): void {
             this.repaint(SpriteConst.REPAINT_ALL);
             complete && complete.run();
         }

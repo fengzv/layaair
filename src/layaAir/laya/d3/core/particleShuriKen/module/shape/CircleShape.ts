@@ -27,7 +27,6 @@ export class CircleShape extends BaseShape {
 		this.radius = 1.0;
 		this.arc = 360.0 / 180.0 * Math.PI;
 		this.emitFromEdge = false;
-		this.randomDirection = false;
 	}
 
 	/**
@@ -113,6 +112,7 @@ export class CircleShape extends BaseShape {
 	}
 
 	/**
+	 * @override
 	 * 克隆。
 	 * @return	 克隆副本。
 	 */

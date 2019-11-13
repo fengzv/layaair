@@ -1,4 +1,4 @@
-import { TraceTool } from "./ool";
+import { TraceTool } from "./TraceTool";
 ///////////////////////////////////////////////////////////
 //  CountTool.as
 //  Macromedia ActionScript Implementation of the Class CountTool
@@ -15,18 +15,20 @@ import { TraceTool } from "./ool";
 	 */
 	export class CountTool
 	{
-		constructor(){
-		}
-		 data:any = { };
-		 preO:any = { };
-		 changeO:any = { };
-		 count:number;
-		 reset():void
+		constructor(){}
+		
+		data:any = { };
+		preO:any = { };
+		changeO:any = { };
+		count:number;
+
+		reset():void
 		{
 			this.data={};
 			this.count=0;
 		}
-		 add(name:string, num:number=1 ):void
+
+		add(name:string, num:number=1 ):void
 		{
 			this.count++;
 			if(!this.data.hasOwnProperty(name))
@@ -35,7 +37,8 @@ import { TraceTool } from "./ool";
 			}
 			this.data[name]=this.data[name]+num;
 		}
-		 getKeyCount(key:string):number
+
+		getKeyCount(key:string):number
 		{
 			if(!this.data.hasOwnProperty(key))
 			{
@@ -43,12 +46,14 @@ import { TraceTool } from "./ool";
 			}
 			return this.data[key];
 		}
-		 getKeyChange(key:string):number
+
+		getKeyChange(key:string):number
 		{
 			if (!this.changeO[key]) return 0;
 			return this.changeO[key];
 		}
-		 record():void
+
+		record():void
 		{
 			var key:string;
 			for (key in this.changeO)
@@ -62,7 +67,8 @@ import { TraceTool } from "./ool";
 				this.preO[key]=this.data[key]
 			}
 		}
-		 getCount(dataO:any):number
+
+		getCount(dataO:any):number
 		{
 			var rst:number = 0;
 			var key:string;
@@ -72,7 +78,8 @@ import { TraceTool } from "./ool";
 			}
 			return rst;
 		}
-		 traceSelf(dataO:any=null):string
+
+		traceSelf(dataO:any=null):string
 		{
 			if (!dataO) dataO = this.data;
 			var tCount:number;
@@ -81,7 +88,8 @@ import { TraceTool } from "./ool";
 //			trace(data);
 			return "total:"+tCount+"\n"+TraceTool.traceObj(dataO);
 		}
-		 traceSelfR(dataO:any=null):string
+
+		traceSelfR(dataO:any=null):string
 		{
 			if (!dataO) dataO = this.data;
 			var tCount:number;

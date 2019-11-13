@@ -6,7 +6,7 @@ import { Animator } from "../component/Animator";
 import { FrustumCulling } from "../graphics/FrustumCulling";
 import { Matrix4x4 } from "../math/Matrix4x4";
 import { Vector3 } from "../math/Vector3";
-import { Mesh } from "../resource/models/Mesh";
+import { Mesh, skinnedMatrixCache } from "../resource/models/Mesh";
 import { SubMesh } from "../resource/models/SubMesh";
 import { Utils3D } from "../utils/Utils3D";
 import { Avatar } from "./Avatar";
@@ -42,33 +42,23 @@ export class SkinnedMeshRenderer extends MeshRenderer {
 	private _cacheRootBone: Sprite3D;
 
 	/**
-	 * 获取局部边界。
-	 * @return 边界。
+	 * 局部边界。
 	 */
 	get localBounds(): Bounds {
 		return this._localBounds;
 	}
 
-	/**
-	 * 设置局部边界。
-	 * @param value 边界
-	 */
 	set localBounds(value: Bounds) {
 		this._localBounds = value;
 	}
 
 	/**
-	 * 获取根节点。
-	 * @return 根节点。
+	 * 根节点。
 	 */
 	get rootBone(): Sprite3D {
 		return this._cacheRootBone;
 	}
 
-	/**
-	 * 设置根节点。
-	 * @param value 根节点。
-	 */
 	set rootBone(value: Sprite3D) {
 		if (this._cacheRootBone != value) {
 			if (this._cacheRootBone)
@@ -101,18 +91,19 @@ export class SkinnedMeshRenderer extends MeshRenderer {
 	}
 
 
-
+	/**
+	 * @internal
+	 */
 	private _computeSkinnedData(): void {
 		if (this._cacheMesh && this._cacheAvatar/*兼容*/ || this._cacheMesh && !this._cacheAvatar) {
 			var bindPoses: Matrix4x4[] = this._cacheMesh._inverseBindPoses;
-			var meshBindPoseIndices: Uint16Array = this._cacheMesh._bindPoseIndices;
-			var pathMarks: any[][] = this._cacheMesh._skinDataPathMarks;
+			var pathMarks: skinnedMatrixCache[] = this._cacheMesh._skinnedMatrixCaches;
 			for (var i: number = 0, n: number = this._cacheMesh.subMeshCount; i < n; i++) {
 				var subMeshBoneIndices: Uint16Array[] = ((<SubMesh>this._cacheMesh.getSubMesh(i)))._boneIndicesList;
 				var subData: Float32Array[] = this._skinnedData[i];
 				for (var j: number = 0, m: number = subMeshBoneIndices.length; j < m; j++) {
 					var boneIndices: Uint16Array = subMeshBoneIndices[j];
-					this._computeSubSkinnedData(bindPoses, boneIndices, meshBindPoseIndices, subData[j], pathMarks);
+					this._computeSubSkinnedData(bindPoses, boneIndices, subData[j], pathMarks);
 				}
 			}
 		}
@@ -121,24 +112,22 @@ export class SkinnedMeshRenderer extends MeshRenderer {
 	/**
 	 * @internal
 	 */
-	private _computeSubSkinnedData(bindPoses: Matrix4x4[], boneIndices: Uint16Array, meshBindPoseInices: Uint16Array, data: Float32Array, pathMarks: any[][]): void {
+	private _computeSubSkinnedData(bindPoses: Matrix4x4[], boneIndices: Uint16Array, data: Float32Array, matrixCaches: skinnedMatrixCache[]): void {
 		for (var k: number = 0, q: number = boneIndices.length; k < q; k++) {
 			var index: number = boneIndices[k];
 			if (this._skinnedDataLoopMarks[index] === Stat.loopCount) {
-				var p: any[] = pathMarks[index];
-				var preData: Float32Array = this._skinnedData[p[0]][p[1]];
-				var srcIndex: number = p[2] * 16;
+				var c: skinnedMatrixCache = matrixCaches[index];
+				var preData: Float32Array = this._skinnedData[c.subMeshIndex][c.batchIndex];
+				var srcIndex: number = c.batchBoneIndex * 16;
 				var dstIndex: number = k * 16;
 				for (var d: number = 0; d < 16; d++)
 					data[dstIndex + d] = preData[srcIndex + d];
 			} else {
 				if (!this._cacheAvatar) {
-					var boneIndex: number = meshBindPoseInices[index];
-					Utils3D._mulMatrixArray(this._bones[boneIndex].transform.worldMatrix.elements, bindPoses[boneIndex], data, k * 16);
+					Utils3D._mulMatrixArray(this._bones[index].transform.worldMatrix.elements, bindPoses[index], data, k * 16);
 				} else {//[兼容代码]
-					Utils3D._mulMatrixArray(this._cacheAnimationNode[index].transform.getWorldMatrix(), bindPoses[meshBindPoseInices[index]], data, k * 16);
+					Utils3D._mulMatrixArray(this._cacheAnimationNode[index].transform.getWorldMatrix(), bindPoses[index], data, k * 16);
 				}
-
 				this._skinnedDataLoopMarks[index] = Stat.loopCount;
 			}
 		}
@@ -185,7 +174,7 @@ export class SkinnedMeshRenderer extends MeshRenderer {
 
 		var subMeshCount: number = value.subMeshCount;
 		this._skinnedData = [];
-		this._skinnedDataLoopMarks.length = ((<Mesh>value))._bindPoseIndices.length;
+		this._skinnedDataLoopMarks.length = value._inverseBindPoses.length;
 		for (var i: number = 0; i < subMeshCount; i++) {
 			var subBoneIndices: Uint16Array[] = ((<SubMesh>value.getSubMesh(i)))._boneIndicesList;
 			var subCount: number = subBoneIndices.length;
@@ -292,7 +281,7 @@ export class SkinnedMeshRenderer extends MeshRenderer {
 			if (this._cacheRootBone)
 				(!this._cacheRootBone.destroyed) && (this._cacheRootBone.transform.off(Event.TRANSFORM_CHANGED, this, this._onWorldMatNeedChange));
 			else
-				(this._owner&&!this._owner.destroyed) && (this._owner.transform.off(Event.TRANSFORM_CHANGED, this, this._onWorldMatNeedChange));
+				(this._owner && !this._owner.destroyed) && (this._owner.transform.off(Event.TRANSFORM_CHANGED, this, this._onWorldMatNeedChange));
 		} else {//[兼容性]
 			if (this._cacheRootAnimationNode)
 				this._cacheRootAnimationNode.transform.off(Event.TRANSFORM_CHANGED, this, this._onWorldMatNeedChange);
@@ -312,8 +301,7 @@ export class SkinnedMeshRenderer extends MeshRenderer {
 
 	/**
 	 * @override
-	 * 获取包围盒。
-	 * @return 包围盒。
+	 * 包围盒。
 	 */
 	get bounds(): Bounds {
 		if (this._boundsChange || this._cacheAvatar) {//有this._cacheAvatar模式会导致裁剪后动画不更新。动画不更新包围不更新。包围盒不更新就永远裁掉了
@@ -356,14 +344,13 @@ export class SkinnedMeshRenderer extends MeshRenderer {
 	 */
 	private _getCacheAnimationNodes(): void {//[兼容性API]
 		var meshBoneNames: string[] = this._cacheMesh._boneNames;
-		var bindPoseIndices: Uint16Array = this._cacheMesh._bindPoseIndices;
-		var innerBindPoseCount: number = bindPoseIndices.length;
+		var innerBindPoseCount: number = this._cacheMesh._inverseBindPoses.length;
 
 		if (!Render.supportWebGLPlusAnimation) {
 			this._cacheAnimationNode.length = innerBindPoseCount;
 			var nodeMap: any = this._cacheAnimator._avatarNodeMap;
 			for (var i: number = 0; i < innerBindPoseCount; i++) {
-				var node: AnimationNode = nodeMap[meshBoneNames[bindPoseIndices[i]]];
+				var node: AnimationNode = nodeMap[meshBoneNames[i]];
 				this._cacheAnimationNode[i] = node;
 			}
 
@@ -371,7 +358,7 @@ export class SkinnedMeshRenderer extends MeshRenderer {
 			this._cacheAnimationNodeIndices = new Uint16Array(innerBindPoseCount);
 			var nodeMapC: any = this._cacheAnimator._avatarNodeMap;
 			for (i = 0; i < innerBindPoseCount; i++) {
-				var nodeC: AnimationNode = nodeMapC[meshBoneNames[bindPoseIndices[i]]];
+				var nodeC: AnimationNode = nodeMapC[meshBoneNames[i]];
 				this._cacheAnimationNodeIndices[i] = nodeC ? nodeC._worldMatrixIndex : 0;
 			}
 		}
@@ -397,14 +384,14 @@ export class SkinnedMeshRenderer extends MeshRenderer {
 		}
 	}
 
-	/**@internal	[NATIVE]*/
+	/**@internal [NATIVE]*/
 	private _cacheAnimationNodeIndices: Uint16Array;
 
 	/**
 	 * @internal [NATIVE]
 	 */
-	private _computeSubSkinnedDataNative(worldMatrixs: Float32Array, cacheAnimationNodeIndices: Uint16Array, inverseBindPosesBuffer: ArrayBuffer, boneIndices: Uint16Array, bindPoseInices: Uint16Array, data: Float32Array): void {
-		(<any>LayaGL.instance).computeSubSkinnedData(worldMatrixs, cacheAnimationNodeIndices, inverseBindPosesBuffer, boneIndices, bindPoseInices, data);
+	private _computeSubSkinnedDataNative(worldMatrixs: Float32Array, cacheAnimationNodeIndices: Uint16Array, inverseBindPosesBuffer: ArrayBuffer, boneIndices: Uint16Array, data: Float32Array): void {
+		(<any>LayaGL.instance).computeSubSkinnedData(worldMatrixs, cacheAnimationNodeIndices, inverseBindPosesBuffer, boneIndices, data);
 	}
 
 	/**
@@ -413,17 +400,16 @@ export class SkinnedMeshRenderer extends MeshRenderer {
 	private _computeSkinnedDataForNative(): void {
 		if (this._cacheMesh && this._cacheAvatar/*兼容*/ || this._cacheMesh && !this._cacheAvatar) {
 			var bindPoses: Matrix4x4[] = this._cacheMesh._inverseBindPoses;
-			var meshBindPoseIndices: Uint16Array = this._cacheMesh._bindPoseIndices;
-			var pathMarks: any[][] = this._cacheMesh._skinDataPathMarks;
+			var pathMarks: skinnedMatrixCache[] = this._cacheMesh._skinnedMatrixCaches;
 			for (var i: number = 0, n: number = this._cacheMesh.subMeshCount; i < n; i++) {
 				var subMeshBoneIndices: Uint16Array[] = ((<SubMesh>this._cacheMesh.getSubMesh(i)))._boneIndicesList;
 				var subData: Float32Array[] = this._skinnedData[i];
 				for (var j: number = 0, m: number = subMeshBoneIndices.length; j < m; j++) {
 					var boneIndices: Uint16Array = subMeshBoneIndices[j];
 					if (this._cacheAvatar && Render.supportWebGLPlusAnimation)//[Native]
-						this._computeSubSkinnedDataNative(this._cacheAnimator._animationNodeWorldMatrixs, this._cacheAnimationNodeIndices, this._cacheMesh._inverseBindPosesBuffer, boneIndices, meshBindPoseIndices, subData[j]);
+						this._computeSubSkinnedDataNative(this._cacheAnimator._animationNodeWorldMatrixs, this._cacheAnimationNodeIndices, this._cacheMesh._inverseBindPosesBuffer, boneIndices, subData[j]);
 					else
-						this._computeSubSkinnedData(bindPoses, boneIndices, meshBindPoseIndices, subData[j], pathMarks);
+						this._computeSubSkinnedData(bindPoses, boneIndices, subData[j], pathMarks);
 				}
 			}
 		}

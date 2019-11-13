@@ -1,20 +1,28 @@
-import { Browser } from "../../../../../../../core/src/laya/utils/Browser"
-	import { ClassTool } from "../ClassTool"
-	import { FunHook } from "../hook/FunHook"
-	import { VarHook } from "../hook/VarHook"
-	import { RunProfile } from "../RunProfile"
+import { ClassTool } from "../ClassTool"
+import { FunHook } from "../hook/FunHook"
+import { RunProfile } from "../RunProfile"
 	/**
 	 * ...
 	 * @author ww
 	 */
 	export class ClassCreateHook 
 	{
-		 static I:ClassCreateHook = new ClassCreateHook();
+		private static _instance:ClassCreateHook;
+		static get I():ClassCreateHook{
+			if(!ClassCreateHook._instance){
+				ClassCreateHook._instance = new ClassCreateHook();
+			}
+			return ClassCreateHook._instance;
+		}
+		static set I(value){
+			ClassCreateHook._instance = value;
+		}
+		
 		constructor(){
 			
 		}
-		 static isInited:boolean = false;
-		 hookClass(clz:new()=>any):void
+		static isInited:boolean = false;
+		hookClass(clz:new()=>any):void
 		{
 			if (ClassCreateHook.isInited) return;
 			ClassCreateHook.isInited = true;
@@ -25,8 +33,8 @@ import { Browser } from "../../../../../../../core/src/laya/utils/Browser"
 			FunHook.hook(clz, "call", createFun);
 		}
 		
-	     createInfo:any = { };
-		 classCreated(clz:new()=>any,oClass:new()=>any):void
+		createInfo:any = { };
+		classCreated(clz:new()=>any,oClass:new()=>any):void
 		{
 			var key:string;
 			key = ClassTool.getNodeClassAndName(clz);
@@ -35,7 +43,7 @@ import { Browser } from "../../../../../../../core/src/laya/utils/Browser"
 			tClz = clz;
 			while (tClz && tClz != oClass)
 			{
-				tClz = tClz.__super;
+				tClz = tClz.prototype;
 				depth++;
 			} 
 			
@@ -47,10 +55,9 @@ import { Browser } from "../../../../../../../core/src/laya/utils/Browser"
 			//trace("create:",key,clz);
 			//RunProfile.showClassCreate(key);
 			RunProfile.run(key, depth+6);
-			
-			
 		}
-		 getClassCreateInfo(clz:new()=>any):any
+		
+		getClassCreateInfo(clz:new()=>any):any
 		{
 			var key:string;
 			key=ClassTool.getClassName(clz);

@@ -14,9 +14,7 @@ import { Timer } from "../../../utils/Timer";
 import { ISubmit } from "../../../webgl/submit/ISubmit";
 import { SubmitBase } from "../../../webgl/submit/SubmitBase";
 import { SubmitKey } from "../../../webgl/submit/SubmitKey";
-import { WebGL } from "../../../webgl/WebGL";
 import { WebGLContext } from "../../../webgl/WebGLContext";
-import { CastShadowList } from "../../CastShadowList";
 import { Animator } from "../../component/Animator";
 import { Script3D } from "../../component/Script3D";
 import { SimpleSingletonList } from "../../component/SimpleSingletonList";
@@ -37,7 +35,6 @@ import { RenderTexture } from "../../resource/RenderTexture";
 import { TextureCube } from "../../resource/TextureCube";
 import { Shader3D } from "../../shader/Shader3D";
 import { ShaderData } from "../../shader/ShaderData";
-import { ShaderInit3D } from "../../shader/ShaderInit3D";
 import { ParallelSplitShadowMap } from "../../shadowMap/ParallelSplitShadowMap";
 import { Utils3D } from "../../utils/Utils3D";
 import { BaseCamera } from "../BaseCamera";
@@ -46,7 +43,7 @@ import { DirectionLight } from "../light/DirectionLight";
 import { AlternateLightQueue, DirectionLightQueue, LightQueue } from "../light/LightQueue";
 import { PointLight } from "../light/PointLight";
 import { SpotLight } from "../light/SpotLight";
-import { BaseMaterial } from "../material/BaseMaterial";
+import { Material } from "../material/Material";
 import { RenderState } from "../material/RenderState";
 import { PixelLineMaterial } from "../pixelLine/PixelLineMaterial";
 import { PixelLineSprite3D } from "../pixelLine/PixelLineSprite3D";
@@ -61,7 +58,7 @@ import { Scene3DShaderDeclaration } from "./Scene3DShaderDeclaration";
 
 
 /**
- * <code>Scene3D</code> 类用于实现场景。
+ * 用于实现3D场景。
  */
 export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 	/** @internal */
@@ -123,10 +120,7 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 	static REFLECTIONTEXTURE: number = Shader3D.propertyNameToID("u_ReflectTexture");
 	static REFLETIONINTENSITY: number = Shader3D.propertyNameToID("u_ReflectIntensity");
 	static TIME: number = Shader3D.propertyNameToID("u_Time");
-	static ANGLEATTENUATIONTEXTURE: number = Shader3D.propertyNameToID("u_AngleTexture");
-	static RANGEATTENUATIONTEXTURE: number = Shader3D.propertyNameToID("u_RangeTexture");
-	static POINTLIGHTMATRIX: number = Shader3D.propertyNameToID("u_PointLightMatrix");
-	static SPOTLIGHTMATRIX: number = Shader3D.propertyNameToID("u_SpotLightMatrix");
+
 
 	/**
 	 * @internal
@@ -138,7 +132,7 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 			const width: number = 4;
 			var maxLightCount: number = con.maxLightCount;
 			var clusterSlices: Vector3 = con.lightClusterCount;
-			Cluster.instance = new Cluster(clusterSlices.x, clusterSlices.y, clusterSlices.z, con.maxLightCountPerCluster);
+			Cluster.instance = new Cluster(clusterSlices.x, clusterSlices.y, clusterSlices.z, Math.min(con.maxLightCount, con._maxAreaLightCountPerClusterAverage));
 			Scene3D._lightTexture = Utils3D._createFloatTextureBuffer(width, maxLightCount);
 			Scene3D._lightTexture.lock = true;
 			Scene3D._lightPixles = new Float32Array(maxLightCount * width * 4);
@@ -169,11 +163,11 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 		ILaya.loader.create(url, complete, null, Scene3D.HIERARCHY);
 	}
 
-	/**@internal */
+	/** @internal */
 	private _url: string;
-	/**@internal */
+	/** @internal */
 	private _group: string;
-	/**@internal */
+	/** @internal */
 	public _lightCount: number = 0;
 	/** @internal */
 	public _pointLights: LightQueue<PointLight> = new LightQueue();
@@ -198,8 +192,10 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 	private _input: Input3D = new Input3D();
 	/** @internal */
 	private _timer: Timer = ILaya.timer;
+	/** @internal */
+	private _time: number = 0;
 
-	/**@internal */
+	/** @internal */
 	_octree: BoundsOctree;
 	/** @internal 只读,不允许修改。*/
 	_collsionTestList: number[] = [];
@@ -223,9 +219,6 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 	/** @internal */
 	_needClearScriptPool: boolean = false;
 
-	/** @internal */
-	_castShadowRenders: CastShadowList = new CastShadowList();
-
 	/** 当前创建精灵所属遮罩层。*/
 	currentCreationLayer: number = Math.pow(2, 0);
 	/** 是否启用灯光。*/
@@ -238,8 +231,6 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 
 	/** @internal */
 	_key: SubmitKey = new SubmitKey();
-
-	private _time: number = 0;
 
 	/** @internal	[NATIVE]*/
 	_cullingBufferIndices: Int32Array;
@@ -277,25 +268,19 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 	}
 
 	/**
-	 * 获取资源的URL地址。
-	 * @return URL地址。
+	 * 资源的URL地址。
 	 */
 	get url(): string {
 		return this._url;
 	}
 
 	/**
-	 * 获取是否允许雾化。
-	 * @return 是否允许雾化。
+	 * 是否允许雾化。
 	 */
 	get enableFog(): boolean {
 		return this._enableFog;
 	}
 
-	/**
-	 * 设置是否允许雾化。
-	 * @param value 是否允许雾化。
-	 */
 	set enableFog(value: boolean) {
 		if (this._enableFog !== value) {
 			this._enableFog = value;
@@ -307,89 +292,63 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 	}
 
 	/**
-	 * 获取雾化颜色。
-	 * @return 雾化颜色。
+	 * 雾化颜色。
 	 */
 	get fogColor(): Vector3 {
 		return (<Vector3>this._shaderValues.getVector3(Scene3D.FOGCOLOR));
 	}
 
-	/**
-	 * 设置雾化颜色。
-	 * @param value 雾化颜色。
-	 */
 	set fogColor(value: Vector3) {
 		this._shaderValues.setVector3(Scene3D.FOGCOLOR, value);
 	}
 
 	/**
-	 * 获取雾化起始位置。
-	 * @return 雾化起始位置。
+	 * 雾化起始位置。
 	 */
 	get fogStart(): number {
 		return this._shaderValues.getNumber(Scene3D.FOGSTART);
 	}
 
-	/**
-	 * 设置雾化起始位置。
-	 * @param value 雾化起始位置。
-	 */
 	set fogStart(value: number) {
 		this._shaderValues.setNumber(Scene3D.FOGSTART, value);
 	}
 
 	/**
-	 * 获取雾化范围。
-	 * @return 雾化范围。
+	 * 雾化范围。
 	 */
 	get fogRange(): number {
 		return this._shaderValues.getNumber(Scene3D.FOGRANGE);
 	}
 
-	/**
-	 * 设置雾化范围。
-	 * @param value 雾化范围。
-	 */
 	set fogRange(value: number) {
 		this._shaderValues.setNumber(Scene3D.FOGRANGE, value);
 	}
 
 	/**
-	 * 获取环境光颜色。
-	 * @return 环境光颜色。
+	 * 环境光颜色。
 	 */
 	get ambientColor(): Vector3 {
 		return (<Vector3>this._shaderValues.getVector3(Scene3D.AMBIENTCOLOR));
 	}
 
-	/**
-	 * 设置环境光颜色。
-	 * @param value 环境光颜色。
-	 */
 	set ambientColor(value: Vector3) {
 		this._shaderValues.setVector3(Scene3D.AMBIENTCOLOR, value);
 	}
 
 	/**
-	 * 获取天空渲染器。
-	 * @return 天空渲染器。
+	 * 天空渲染器。
 	 */
 	get skyRenderer(): SkyRenderer {
 		return this._skyRenderer;
 	}
 
 	/**
-	 * 获取反射贴图。
-	 * @return 反射贴图。
+	 * 反射贴图。
 	 */
 	get customReflection(): TextureCube {
 		return (<TextureCube>this._shaderValues.getTexture(Scene3D.REFLECTIONTEXTURE));
 	}
 
-	/**
-	 * 设置反射贴图。
-	 * @param 反射贴图。
-	 */
 	set customReflection(value: TextureCube) {
 		this._shaderValues.setTexture(Scene3D.REFLECTIONTEXTURE, value);
 		if (value)
@@ -399,64 +358,49 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 	}
 
 	/**
-	 * 获取反射强度。
-	 * @return 反射强度。
+	 * 反射强度。
 	 */
 	get reflectionIntensity(): number {
 		return this._shaderValues.getNumber(Scene3D.REFLETIONINTENSITY);
 	}
 
-	/**
-	 * 设置反射强度。
-	 * @param 反射强度。
-	 */
 	set reflectionIntensity(value: number) {
 		value = Math.max(Math.min(value, 1.0), 0.0);
 		this._shaderValues.setNumber(Scene3D.REFLETIONINTENSITY, value);
 	}
 
 	/**
-	 * 获取物理模拟器。
-	 * @return 物理模拟器。
+	 * 物理模拟器。
 	 */
 	get physicsSimulation(): PhysicsSimulation {
 		return this._physicsSimulation;
 	}
 
 	/**
-	 * 获取反射模式。
-	 * @return 反射模式。
+	 * 反射模式。
 	 */
 	get reflectionMode(): number {
 		return this._reflectionMode;
 	}
 
-	/**
-	 * 设置反射模式。
-	 * @param value 反射模式。
-	 */
 	set reflectionMode(value: number) {
 		this._reflectionMode = value;
 	}
 
 	/**
-	 * 获取场景时钟。
+	 * 场景时钟。
 	 * @override
 	 */
 	get timer(): Timer {
 		return this._timer;
 	}
 
-	/**
-	 * 设置场景时钟。
-	 */
 	set timer(value: Timer) {
 		this._timer = value;
 	}
 
 	/**
-	 *	获取输入。
-	 * 	@return  输入。
+	 *	输入。
 	 */
 	get input(): Input3D {
 		return this._input;
@@ -467,7 +411,7 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 	 */
 	constructor() {
 		super();
-		if (Physics3D._enbalePhysics)
+		if (Physics3D._enablePhysics)
 			this._physicsSimulation = new PhysicsSimulation(Scene3D.physicsSettings);
 
 		this._shaderValues = new ShaderData(null);
@@ -479,7 +423,6 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 		this.fogColor = new Vector3(0.7, 0.7, 0.7);
 		this.ambientColor = new Vector3(0.212, 0.227, 0.259);
 		this.reflectionIntensity = 1.0;
-		(WebGL.shaderHighPrecision) && (this._shaderValues.addDefine(Shader3D.SHADERDEFINE_HIGHPRECISION));
 		(Config3D._config._multiLighting) || (this._shaderValues.addDefine(Shader3D.SHADERDEFINE_LEGACYSINGALLIGHTING));
 
 		if (Render.supportWebGLPlusCulling) {//[NATIVE]
@@ -487,7 +430,7 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 			this._cullingBufferResult = new Int32Array(1024);
 		}
 
-		this._shaderValues.setTexture(Scene3D.RANGEATTENUATIONTEXTURE, ShaderInit3D._rangeAttenTex);//TODO:
+		//this._shaderValues.setTexture(Scene3D.RANGEATTENUATIONTEXTURE, ShaderInit3D._rangeAttenTex);//TODO:
 
 		//var angleAttenTex:Texture2D = Texture2D.buildTexture2D(64, 64, BaseTexture.FORMAT_Alpha8, TextureGenerator.haloTexture);
 		//_shaderValues.setTexture(Scene3D.ANGLEATTENUATIONTEXTURE, angleAttenTex);
@@ -504,7 +447,7 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 		if (FrustumCulling.debugFrustumCulling) {
 			this._debugTool = new PixelLineSprite3D();
 			var lineMaterial: PixelLineMaterial = new PixelLineMaterial();
-			lineMaterial.renderQueue = BaseMaterial.RENDERQUEUE_TRANSPARENT;
+			lineMaterial.renderQueue = Material.RENDERQUEUE_TRANSPARENT;
 			lineMaterial.alphaTest = false;
 			lineMaterial.depthWrite = false;
 			lineMaterial.cull = RenderState.CULL_BACK;
@@ -538,7 +481,7 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 		this._shaderValues.setNumber(Scene3D.TIME, this._time);
 
 		var simulation: PhysicsSimulation = this._physicsSimulation;
-		if (Physics3D._enbalePhysics && !PhysicsSimulation.disableSimulation) {
+		if (Physics3D._enablePhysics && !PhysicsSimulation.disableSimulation) {
 			simulation._updatePhysicsTransformFromRender();
 			PhysicsComponent._addUpdateList = false;//物理模拟器会触发_updateTransformComponent函数,不加入更新队列
 			//simulate physics
@@ -868,7 +811,7 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 	 * @internal
 	 */
 	_preCulling(context: RenderContext3D, camera: Camera, shader: Shader3D, replacementTag: string): void {
-		FrustumCulling.renderObjectCulling(camera, this, context, this._renders, shader, replacementTag);
+		FrustumCulling.renderObjectCulling(camera, this, context, shader, replacementTag, false);
 	}
 
 	/**
@@ -876,13 +819,21 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 	 */
 	_clear(gl: WebGLRenderingContext, state: RenderContext3D): void {
 		var viewport: Viewport = state.viewport;
-		var camera: Camera = (<Camera>state.camera);
-		var renderTexture: RenderTexture = camera._getInternalRenderTexture();
+		var camera: Camera = <Camera>state.camera;
+		var renderTex: RenderTexture = camera._getRenderTexture();
+		var vpX: number, vpY: number;
 		var vpW: number = viewport.width;
 		var vpH: number = viewport.height;
-		var vpX: number = viewport.x;
-		var vpY: number = camera._getCanvasHeight() - viewport.y - vpH;
+		if (camera._needInternalRenderTexture()) {
+			vpX = 0;
+			vpY = 0;
+		}
+		else {
+			vpX = viewport.x;
+			vpY = camera._getCanvasHeight() - viewport.y - vpH;
+		}
 		gl.viewport(vpX, vpY, vpW, vpH);
+
 		var flag: number;
 		var clearFlag: number = camera.clearFlag;
 		if (clearFlag === BaseCamera.CLEARFLAG_SKY && !(camera.skyRenderer._isAvailable() || this._skyRenderer._isAvailable()))
@@ -897,9 +848,9 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 					gl.clearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
 				else
 					gl.clearColor(0, 0, 0, 0);
-				if (renderTexture) {
+				if (renderTex) {
 					flag = gl.COLOR_BUFFER_BIT;
-					switch (renderTexture.depthStencilFormat) {
+					switch (renderTex.depthStencilFormat) {
 						case RenderTextureDepthFormat.DEPTH_16:
 							flag |= gl.DEPTH_BUFFER_BIT;
 							break;
@@ -922,8 +873,8 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 			case BaseCamera.CLEARFLAG_DEPTHONLY:
 				gl.enable(gl.SCISSOR_TEST);
 				gl.scissor(vpX, vpY, vpW, vpH);
-				if (renderTexture) {
-					switch (renderTexture.depthStencilFormat) {
+				if (renderTex) {
+					switch (renderTex.depthStencilFormat) {
 						case RenderTextureDepthFormat.DEPTH_16:
 							flag = gl.DEPTH_BUFFER_BIT;
 							break;
@@ -944,7 +895,7 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 			case BaseCamera.CLEARFLAG_NONE:
 				break;
 			default:
-				throw new Error("BaseScene:camera clearFlag invalid.");
+				throw new Error("Scene3D:camera clearFlag invalid.");
 		}
 	}
 
@@ -952,22 +903,22 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 	 * @internal
 	 */
 	_renderScene(context: RenderContext3D): void {
-		var camera: Camera = (<Camera>context.camera);
-		var renderTar: RenderTexture = camera._getInternalRenderTexture();
-		renderTar ? this._opaqueQueue._render(context, true) : this._opaqueQueue._render(context, false);//非透明队列
+		var camera: Camera = <Camera>context.camera;
+
+		this._opaqueQueue._render(context);//非透明队列
 		if (camera.clearFlag === BaseCamera.CLEARFLAG_SKY) {
 			if (camera.skyRenderer._isAvailable())
 				camera.skyRenderer._render(context);
 			else if (this._skyRenderer._isAvailable())
 				this._skyRenderer._render(context);
 		}
-		renderTar ? this._transparentQueue._render(context, true) : this._transparentQueue._render(context, false);//透明队列
+		this._transparentQueue._render(context);//透明队列
 
 		if (FrustumCulling.debugFrustumCulling) {
 			var renderElements: RenderElement[] = this._debugTool._render._renderElements;
 			for (var i: number = 0, n: number = renderElements.length; i < n; i++) {
 				renderElements[i]._update(this, context, null, null);
-				renderElements[i]._render(context, false);
+				renderElements[i]._render(context);
 			}
 		}
 	}
@@ -1087,30 +1038,6 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 	/**
 	 * @internal
 	 */
-	_addShadowCastRenderObject(render: BaseRender): void {
-		if (this._octree) {
-			//TODO:
-			//addTreeNode(render);
-		} else {
-			this._castShadowRenders.add(render);
-		}
-	}
-
-	/**
-	 * @internal
-	 */
-	_removeShadowCastRenderObject(render: BaseRender): void {
-		if (this._octree) {
-			//TODO:
-			//removeTreeNode(render);
-		} else {
-			this._castShadowRenders.remove(render);
-		}
-	}
-
-	/**
-	 * @internal
-	 */
 	_getRenderQueue(index: number): RenderQueue {
 		if (index <= 2500)//2500作为队列临界点
 			return this._opaqueQueue;
@@ -1166,7 +1093,6 @@ export class Scene3D extends Sprite implements ISubmit, ICreateResource {
 		this._lightmaps = null;
 		this._shaderValues = null;
 		this._renders = null;
-		this._castShadowRenders = null;
 		this._cameraPool = null;
 		this._octree = null;
 		this.parallelSplitShadowMaps = null;

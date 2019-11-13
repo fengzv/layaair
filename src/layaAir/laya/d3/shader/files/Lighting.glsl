@@ -39,7 +39,7 @@ ivec4 getClusterInfo(sampler2D clusterBuffer,mat4 viewMatrix,vec4 viewport,vec3 
 }
 
 
-int GetLightIndex(sampler2D clusterBuffer,int offset,int index) 
+int getLightIndex(sampler2D clusterBuffer,int offset,int index) 
 {
 	int totalOffset=offset+index;
 	int row=totalOffset/c_ClusterBufferFloatWidth;
@@ -59,7 +59,7 @@ int GetLightIndex(sampler2D clusterBuffer,int offset,int index)
       return int(texel.w);
 }
 
-DirectionLight GetDirectionLight(sampler2D lightBuffer,int index) 
+DirectionLight getDirectionLight(sampler2D lightBuffer,int index) 
 {
     DirectionLight light;
     float v = (float(index)+0.5)/ float(MAX_LIGHT_COUNT);
@@ -70,10 +70,10 @@ DirectionLight GetDirectionLight(sampler2D lightBuffer,int index)
     return light;
 }
 
-PointLight GetPointLight(sampler2D lightBuffer,sampler2D clusterBuffer,ivec4 clusterInfo,int index) 
+PointLight getPointLight(sampler2D lightBuffer,sampler2D clusterBuffer,ivec4 clusterInfo,int index) 
 {
     PointLight light;
-	int pointIndex=GetLightIndex(clusterBuffer,clusterInfo.z*c_ClusterBufferFloatWidth+clusterInfo.w,index);
+	int pointIndex=getLightIndex(clusterBuffer,clusterInfo.z*c_ClusterBufferFloatWidth+clusterInfo.w,index);
     float v = (float(pointIndex)+0.5)/ float(MAX_LIGHT_COUNT);
     vec4 p1 = texture2D(lightBuffer, vec2(0.125,v));
     vec4 p2 = texture2D(lightBuffer, vec2(0.375,v));
@@ -83,10 +83,10 @@ PointLight GetPointLight(sampler2D lightBuffer,sampler2D clusterBuffer,ivec4 clu
     return light;
 }
 
-SpotLight GetSpotLight(sampler2D lightBuffer,sampler2D clusterBuffer,ivec4 clusterInfo,int index) 
+SpotLight getSpotLight(sampler2D lightBuffer,sampler2D clusterBuffer,ivec4 clusterInfo,int index) 
 {
     SpotLight light;
-	int spoIndex=GetLightIndex(clusterBuffer,clusterInfo.z*c_ClusterBufferFloatWidth+clusterInfo.w,clusterInfo.x+index);
+	int spoIndex=getLightIndex(clusterBuffer,clusterInfo.z*c_ClusterBufferFloatWidth+clusterInfo.w,clusterInfo.x+index);
     float v = (float(spoIndex)+0.5)/ float(MAX_LIGHT_COUNT);
     vec4 p1 = texture2D(lightBuffer, vec2(0.125,v));
     vec4 p2 = texture2D(lightBuffer, vec2(0.375,v));
@@ -144,12 +144,6 @@ void LayaAirBlinnPhongDiectionLight (in vec3 specColor,in float specColorIntensi
 
 void LayaAirBlinnPhongPointLight (in vec3 pos,in vec3 specColor,in float specColorIntensity,in vec3 normal,in vec3 gloss, in vec3 viewDir, in PointLight light,out vec3 diffuseColor,out vec3 specularColor) {
 	vec3 lightVec =  pos-light.position;
-	// if( length(lightVec) > light.range )
-	// {
-	// 	diffuseColor=vec3(0.0);
-	// 	specularColor=vec3(0.0);
-	// 	return;
-	// }
 	LayaAirBlinnPhongLight(specColor,specColorIntensity,normal,gloss,viewDir,light.color,lightVec/length(lightVec),diffuseColor,specularColor);
 	float attenuate = LayaAttenuation(lightVec, 1.0/light.range);
 	diffuseColor *= attenuate;
@@ -158,13 +152,6 @@ void LayaAirBlinnPhongPointLight (in vec3 pos,in vec3 specColor,in float specCol
 
 void LayaAirBlinnPhongSpotLight (in vec3 pos,in vec3 specColor,in float specColorIntensity,in vec3 normal,in vec3 gloss, in vec3 viewDir, in SpotLight light,out vec3 diffuseColor,out vec3 specularColor) {
 	vec3 lightVec =  pos-light.position;
-	// if( length(lightVec) > light.range )
-	// {
-	// 	diffuseColor=vec3(0.0);
-	// 	specularColor=vec3(0.0);
-	// 	return;
-	// }
-
 	vec3 normalLightVec=lightVec/length(lightVec);
 	LayaAirBlinnPhongLight(specColor,specColorIntensity,normal,gloss,viewDir,light.color,normalLightVec,diffuseColor,specularColor);
 	vec2 cosAngles=cos(vec2(light.spot,light.spot*0.5)*0.5);//ConeAttenuation
